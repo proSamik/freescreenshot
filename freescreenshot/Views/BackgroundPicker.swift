@@ -203,16 +203,22 @@ struct BackgroundPicker: View {
      * Updates the viewModel with temp values and applies background
      */
     private func updateAndApplyChanges() {
+        // Update the viewModel with temporary values
         viewModel.backgroundType = tempBackgroundType
         viewModel.backgroundColor = tempBackgroundColor
         viewModel.backgroundGradient = tempBackgroundGradient
         viewModel.is3DEffect = tempIs3DEffect
         
         // Apply the background change
-        viewModel.applyBackground()
-        
-        // Force UI refresh by toggling state
-        refreshPreview.toggle()
+        DispatchQueue.main.async {
+            // Apply the background with a slight delay to ensure UI updates
+            viewModel.applyBackground()
+            
+            // Force UI refresh by toggling state
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.refreshPreview.toggle()
+            }
+        }
     }
     
     /**

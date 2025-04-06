@@ -140,15 +140,16 @@ class EditorViewModel: ObservableObject {
         
         // CRITICAL: Apply the 3D effect BEFORE drawing the image content if needed
         if is3DEffect {
-            // Complete the background drawing
+            // Get the screenshot with transparent areas preserved
+            let screenshotWithTransparency = removeWhiteBackground(from: originalImage)
+            
+            // Draw the screenshot on top of the background
+            screenshotWithTransparency.draw(in: backgroundRect, from: .zero, operation: .sourceOver, fraction: 1.0)
             resultImage.unlockFocus()
             
-            // Convert the current result to a new 3D image
+            // Convert the result to a 3D image
             guard let perspectiveImage = ImageUtilities.apply3DEffect(to: resultImage, intensity: 0.2) else {
-                // If 3D effect fails, draw original image on background
-                resultImage.lockFocus()
-                originalImage.draw(in: backgroundRect, from: .zero, operation: .sourceOver, fraction: 1.0)
-                resultImage.unlockFocus()
+                // If 3D effect fails, use the non-3D result
                 self.image = resultImage
                 objectWillChange.send()
                 return
@@ -160,13 +161,47 @@ class EditorViewModel: ObservableObject {
             return
         }
         
-        // For non-3D effect, just draw the original image on top of the background
-        originalImage.draw(in: backgroundRect, from: .zero, operation: .sourceOver, fraction: 1.0)
+        // For 2D rendering, create a screenshot with transparent areas
+        let screenshotWithTransparency = removeWhiteBackground(from: originalImage)
+        
+        // Draw the screenshot on top of the background
+        screenshotWithTransparency.draw(in: backgroundRect, from: .zero, operation: .sourceOver, fraction: 1.0)
         resultImage.unlockFocus()
         
         // Update the main image and force a UI update
         self.image = resultImage
         objectWillChange.send()
+    }
+    
+    /**
+     * Removes the white/light background from an image to allow transparency
+     */
+    private func removeWhiteBackground(from image: NSImage) -> NSImage {
+        let size = image.size
+        let result = NSImage(size: size)
+        
+        // Get the bitmap representation of the image
+        guard let tiffData = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiffData) else {
+            return image
+        }
+        
+        // Create an image with RGBA components
+        result.lockFocus()
+        
+        // Get bitmap data
+        let width = bitmap.pixelsWide
+        let height = bitmap.pixelsHigh
+        
+        // Draw the image but preserve transparency
+        if let ctx = NSGraphicsContext.current?.cgContext {
+            if let cgImage = bitmap.cgImage {
+                ctx.draw(cgImage, in: CGRect(origin: .zero, size: size))
+            }
+        }
+        
+        result.unlockFocus()
+        return result
     }
     
     /**

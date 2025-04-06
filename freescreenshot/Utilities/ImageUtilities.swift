@@ -41,7 +41,7 @@ class ImageUtilities {
     static func apply3DEffect(to image: NSImage, intensity: CGFloat = 0.2) -> NSImage? {
         // Create a larger result image to accommodate the transformed content
         let imageSize = image.size
-        let padding = CGFloat(50) // Add padding to prevent clipping
+        let padding = CGFloat(100) // Increase padding to prevent clipping
         let resultSize = CGSize(width: imageSize.width + padding*2, height: imageSize.height + padding*2)
         let resultImage = NSImage(size: resultSize)
         
@@ -49,7 +49,7 @@ class ImageUtilities {
         
         // Clear the background
         NSColor.clear.setFill()
-        NSBezierPath.fill(NSRect(origin: .zero, size: resultSize))
+        NSRect(origin: .zero, size: resultSize).fill()
         
         // Create shadow
         let shadow = NSShadow()
@@ -61,20 +61,17 @@ class ImageUtilities {
         // Center the transform
         let transform = NSAffineTransform()
         transform.translateX(by: padding, yBy: padding)
-        
-        // Apply slight perspective transform
-        transform.translateX(by: imageSize.width * 0.05, yBy: imageSize.height * 0.05)
         transform.concat()
         
         // Draw the image with perspective effect
         let path = NSBezierPath()
         
-        // Define the perspective corners with less extreme values
+        // Define the perspective corners with less extreme values to avoid truncation
         // Top-left
         path.move(to: NSPoint(x: 0, y: imageSize.height))
         
-        // Top-right
-        path.line(to: NSPoint(x: imageSize.width, y: imageSize.height - imageSize.height * intensity * 0.3))
+        // Top-right - reduce the perspective effect to prevent truncation
+        path.line(to: NSPoint(x: imageSize.width, y: imageSize.height - imageSize.height * intensity * 0.2))
         
         // Bottom-right
         path.line(to: NSPoint(x: imageSize.width, y: 0))
