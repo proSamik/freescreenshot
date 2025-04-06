@@ -45,10 +45,15 @@ class EditorViewModel: ObservableObject {
     func setImage(_ newImage: NSImage) {
         self.image = newImage
         self.originalImage = newImage
+        // Reset all editing settings
         self.elements = []
         self.selectedElementId = nil
         self.currentTool = .select
         self.backgroundType = .none
+        self.backgroundColor = .white
+        self.backgroundGradient = Gradient(colors: [.blue, .purple])
+        self.backgroundImage = nil
+        self.is3DEffect = false
     }
     
     /**
@@ -356,34 +361,13 @@ class EditorViewModel: ObservableObject {
                 transform.scale(by: textElement.scale)
                 transform.concat()
                 
-                let size = attributedString.size()
-                attributedString.draw(at: CGPoint(x: -size.width / 2, y: -size.height / 2))
-                context?.restoreGraphicsState()
-            } else if let arrowElement = element as? ArrowElement {
-                context?.saveGraphicsState()
-                let transform = NSAffineTransform()
-                transform.translateX(by: arrowElement.position.x, yBy: arrowElement.position.y)
-                transform.rotate(byRadians: arrowElement.rotation.radians)
-                transform.scale(by: arrowElement.scale)
-                transform.concat()
-                
-                NSColor(arrowElement.color).set()
-                let bezierPath = NSBezierPath()
-                
-                let arrow = ArrowShape(
-                    start: arrowElement.startPoint,
-                    end: arrowElement.endPoint,
-                    style: arrowElement.style
-                ).path(in: CGRect(x: 0, y: 0, width: imageSize.width, height: imageSize.height))
-                
-                let cgPath = arrow.cgPath
-                bezierPath.append(cgPath.toBezierPath())
-                bezierPath.lineWidth = arrowElement.strokeWidth
-                bezierPath.stroke()
+                let textSize = attributedString.size()
+                attributedString.draw(at: NSPoint(x: -textSize.width / 2, y: -textSize.height / 2))
                 
                 context?.restoreGraphicsState()
             }
-            // Additional elements would be rendered here with similar pattern
+            
+            // Render other element types as needed
         }
         
         exportImage.unlockFocus()
@@ -391,26 +375,22 @@ class EditorViewModel: ObservableObject {
     }
     
     /**
-     * Saves the current image to a file
+     * Saves the image to a file
      */
-    func saveImage(to url: URL, type: NSBitmapImageRep.FileType = .png) -> Bool {
-        guard let exportedImage = exportImage(),
-              let tiffData = exportedImage.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData) else {
-            return false
+    func saveImage(to url: URL) {
+        guard let image = exportImage(),
+              let data = ImageUtilities.imageToData(image) else {
+            return
         }
         
-        guard let imageData = bitmap.representation(using: type, properties: [:]) else {
-            return false
-        }
-        
-        do {
-            try imageData.write(to: url)
-            return true
-        } catch {
-            print("Error saving image: \(error)")
-            return false
-        }
+        try? data.write(to: url)
+    }
+    
+    /**
+     * Selects an element by ID
+     */
+    func selectElement(id: UUID?) {
+        selectedElementId = id
     }
 }
 

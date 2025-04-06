@@ -21,11 +21,6 @@ struct EditorView: View {
     @State private var isShowingBackgroundPicker = false
     @State private var isShowingSaveDialog = false
     
-    // Current API compatibility issues with fill(_:style:)
-    private let fillClear = Color.clear
-    private let fillBlack = Color.black
-    private let fillWhite = Color.white
-    
     var body: some View {
         VStack(spacing: 0) {
             // Toolbar - simplified to only show background feature
@@ -118,70 +113,7 @@ struct EditorView: View {
      * Creates the main editor canvas view
      */
     private var editorCanvasView: some View {
-        ZStack {
-            // Background color/pattern
-            backgroundLayer
-            
-            // Image being edited
-            imageLayer
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(NSColor.windowBackgroundColor))
-    }
-    
-    /**
-     * Background color/pattern layer
-     */
-    private var backgroundLayer: some View {
-        Group {
-            if viewModel.backgroundType != .none {
-                // Create a background based on the selected type in viewModel
-                Group {
-                    switch viewModel.backgroundType {
-                    case .solid:
-                        // Display solid color background
-                        viewModel.backgroundColor
-                            .ignoresSafeArea()
-                    
-                    case .gradient:
-                        // Display gradient background
-                        LinearGradient(
-                            gradient: viewModel.backgroundGradient,
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                        .ignoresSafeArea()
-                    
-                    case .image:
-                        // Display image background if available
-                        if let bgImage = viewModel.backgroundImage {
-                            Image(nsImage: bgImage)
-                                .resizable()
-                                .scaledToFill()
-                                .ignoresSafeArea()
-                        } else {
-                            Color(NSColor.windowBackgroundColor)
-                                .ignoresSafeArea()
-                        }
-                    
-                    default:
-                        // Fallback to window background color
-                        Color(NSColor.windowBackgroundColor)
-                            .ignoresSafeArea()
-                    }
-                }
-            } else {
-                // No background selected, use white for a clean look
-                Color.white
-                    .ignoresSafeArea()
-            }
-        }
-    }
-    
-    /**
-     * Image being edited layer
-     */
-    private var imageLayer: some View {
+        // Show only the processed image with background
         Group {
             if let image = viewModel.image {
                 Image(nsImage: image)
@@ -190,6 +122,9 @@ struct EditorView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding()
                     .id(image.hashValue) // Force refresh when image changes
+            } else {
+                Color(NSColor.windowBackgroundColor)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
     }
