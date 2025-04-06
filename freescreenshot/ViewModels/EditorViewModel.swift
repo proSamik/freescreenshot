@@ -77,16 +77,26 @@ class EditorViewModel: ObservableObject {
             return
         }
         
+        // Original image dimensions
         let imageSize = originalImage.size
-        let backgroundRect = CGRect(origin: .zero, size: imageSize)
         
-        // Create a new image to draw on
-        let resultImage = NSImage(size: imageSize)
+        // Add padding around the image for the background (20% on each side)
+        let padding = min(imageSize.width, imageSize.height) * 0.2
+        let resultSize = CGSize(
+            width: imageSize.width + padding * 2,
+            height: imageSize.height + padding * 2
+        )
+        
+        // Create a new larger image to draw on
+        let resultImage = NSImage(size: resultSize)
         resultImage.lockFocus()
         
-        // Clear the canvas first
-        NSColor.clear.setFill()
-        NSBezierPath.fill(backgroundRect)
+        // Clear the canvas first with white
+        NSColor.white.setFill()
+        NSRect(origin: .zero, size: resultSize).fill()
+        
+        // Calculate the rectangle to fill with the background
+        let backgroundRect = CGRect(origin: .zero, size: resultSize)
         
         // Draw background based on selected type
         switch backgroundType {
@@ -106,30 +116,16 @@ class EditorViewModel: ObservableObject {
                     gradientContext.drawLinearGradient(
                         gradient,
                         start: CGPoint(x: 0, y: 0),
-                        end: CGPoint(x: imageSize.width, y: imageSize.height),
+                        end: CGPoint(x: resultSize.width, y: resultSize.height),
                         options: []
                     )
                 }
             }
             
         case .image:
-            // Draw background image
+            // Draw background image scaled to fill the background
             if let bgImage = backgroundImage {
-                // Scale background image to fill the area
-                let bgSize = bgImage.size
-                let xScale = imageSize.width / bgSize.width
-                let yScale = imageSize.height / bgSize.height
-                let scale = max(xScale, yScale) // Use max to ensure image fills the area
-                
-                let scaledWidth = bgSize.width * scale
-                let scaledHeight = bgSize.height * scale
-                
-                // Center the background image
-                let xOffset = (imageSize.width - scaledWidth) / 2
-                let yOffset = (imageSize.height - scaledHeight) / 2
-                
-                let destRect = NSRect(x: xOffset, y: yOffset, width: scaledWidth, height: scaledHeight)
-                bgImage.draw(in: destRect, from: .zero, operation: .copy, fraction: 1.0)
+                bgImage.draw(in: backgroundRect, from: .zero, operation: .copy, fraction: 1.0)
             }
             
         case .none:
@@ -138,237 +134,33 @@ class EditorViewModel: ObservableObject {
             NSBezierPath.fill(backgroundRect)
         }
         
-        // CRITICAL: Apply the 3D effect BEFORE drawing the image content if needed
+        // Calculate where to draw the original image (centered)
+        let imageRect = CGRect(
+            x: padding,
+            y: padding,
+            width: imageSize.width,
+            height: imageSize.height
+        )
+        
+        // Draw the original image on top of the background
+        originalImage.draw(in: imageRect, from: .zero, operation: .sourceOver, fraction: 1.0)
+        
+        resultImage.unlockFocus()
+        
+        // If 3D effect is enabled, apply it to the combined image
         if is3DEffect {
-            // Get the screenshot with transparent areas preserved
-            let screenshotWithTransparency = removeWhiteBackground(from: originalImage)
-            
-            // Draw the screenshot on top of the background
-            screenshotWithTransparency.draw(in: backgroundRect, from: .zero, operation: .sourceOver, fraction: 1.0)
-            resultImage.unlockFocus()
-            
-            // Convert the result to a 3D image
             guard let perspectiveImage = ImageUtilities.apply3DEffect(to: resultImage, intensity: 0.2) else {
-                // If 3D effect fails, use the non-3D result
                 self.image = resultImage
                 objectWillChange.send()
                 return
             }
             
-            // Use the 3D transformed image as our result
             self.image = perspectiveImage
-            objectWillChange.send()
-            return
+        } else {
+            self.image = resultImage
         }
         
-        // For 2D rendering, create a screenshot with transparent areas
-        let screenshotWithTransparency = removeWhiteBackground(from: originalImage)
-        
-        // Draw the screenshot on top of the background
-        screenshotWithTransparency.draw(in: backgroundRect, from: .zero, operation: .sourceOver, fraction: 1.0)
-        resultImage.unlockFocus()
-        
-        // Update the main image and force a UI update
-        self.image = resultImage
         objectWillChange.send()
-    }
-    
-    /**
-     * Removes the white/light background from an image to allow transparency
-     */
-    private func removeWhiteBackground(from image: NSImage) -> NSImage {
-        let size = image.size
-        let result = NSImage(size: size)
-        
-        // Get the bitmap representation of the image
-        guard let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData) else {
-            return image
-        }
-        
-        // Create an image with RGBA components
-        result.lockFocus()
-        
-        // Get bitmap data
-        let width = bitmap.pixelsWide
-        let height = bitmap.pixelsHigh
-        
-        // Draw the image but preserve transparency
-        if let ctx = NSGraphicsContext.current?.cgContext {
-            if let cgImage = bitmap.cgImage {
-                ctx.draw(cgImage, in: CGRect(origin: .zero, size: size))
-            }
-        }
-        
-        result.unlockFocus()
-        return result
-    }
-    
-    /**
-     * Adds a text element at the specified position
-     */
-    func addText(at position: CGPoint, text: String = "Text") {
-        let textElement = TextElement(
-            position: position,
-            text: text,
-            fontSize: textSize,
-            fontColor: textColor
-        )
-        elements.append(textElement)
-        selectedElementId = textElement.id
-    }
-    
-    /**
-     * Adds an arrow element from start to end point
-     */
-    func addArrow(from startPoint: CGPoint, to endPoint: CGPoint) {
-        let midPoint = CGPoint(
-            x: (startPoint.x + endPoint.x) / 2,
-            y: (startPoint.y + endPoint.y) / 2
-        )
-        
-        let arrowElement = ArrowElement(
-            position: midPoint,
-            startPoint: CGPoint(
-                x: startPoint.x - midPoint.x,
-                y: startPoint.y - midPoint.y
-            ),
-            endPoint: CGPoint(
-                x: endPoint.x - midPoint.x,
-                y: endPoint.y - midPoint.y
-            ),
-            style: arrowStyle,
-            strokeWidth: lineWidth,
-            color: textColor
-        )
-        
-        elements.append(arrowElement)
-        selectedElementId = arrowElement.id
-    }
-    
-    /**
-     * Adds a highlighter element at the specified points
-     */
-    func addHighlighter(points: [CGPoint]) {
-        guard !points.isEmpty else { return }
-        
-        // Calculate center of the points
-        let sumX = points.reduce(0) { $0 + $1.x }
-        let sumY = points.reduce(0) { $0 + $1.y }
-        let centerX = sumX / CGFloat(points.count)
-        let centerY = sumY / CGFloat(points.count)
-        let centerPoint = CGPoint(x: centerX, y: centerY)
-        
-        // Adjust points relative to the center
-        let adjustedPoints = points.map { CGPoint(x: $0.x - centerX, y: $0.y - centerY) }
-        
-        let highlighter = HighlighterElement(
-            position: centerPoint,
-            points: adjustedPoints,
-            color: highlighterColor,
-            opacity: highlighterOpacity,
-            lineWidth: lineWidth * 5
-        )
-        
-        elements.append(highlighter)
-        selectedElementId = highlighter.id
-    }
-    
-    /**
-     * Adds a box shadow element at the specified rect
-     */
-    func addBoxShadow(rect: CGRect) {
-        let boxShadow = BoxShadowElement(
-            position: CGPoint(x: rect.midX, y: rect.midY),
-            rect: CGRect(
-                x: -rect.width / 2,
-                y: -rect.height / 2,
-                width: rect.width,
-                height: rect.height
-            )
-        )
-        
-        elements.append(boxShadow)
-        selectedElementId = boxShadow.id
-    }
-    
-    /**
-     * Adds a glass effect element at the specified rect
-     */
-    func addGlassEffect(rect: CGRect) {
-        let glassEffect = GlassEffectElement(
-            position: CGPoint(x: rect.midX, y: rect.midY),
-            rect: CGRect(
-                x: -rect.width / 2,
-                y: -rect.height / 2,
-                width: rect.width,
-                height: rect.height
-            )
-        )
-        
-        elements.append(glassEffect)
-        selectedElementId = glassEffect.id
-    }
-    
-    /**
-     * Removes the currently selected element
-     */
-    func removeSelectedElement() {
-        guard let selectedId = selectedElementId else { return }
-        elements.removeAll { 
-            if let element = $0 as? TextElement { return element.id == selectedId }
-            if let element = $0 as? ArrowElement { return element.id == selectedId }
-            if let element = $0 as? HighlighterElement { return element.id == selectedId }
-            if let element = $0 as? BoxShadowElement { return element.id == selectedId }
-            if let element = $0 as? GlassEffectElement { return element.id == selectedId }
-            return false
-        }
-        selectedElementId = nil
-    }
-    
-    /**
-     * Begins dragging the selected element
-     */
-    func startDrag(at position: CGPoint) {
-        isDragging = true
-        dragStart = position
-        dragOffset = .zero
-    }
-    
-    /**
-     * Updates the position of the dragged element
-     */
-    func updateDrag(to position: CGPoint) {
-        guard isDragging else { return }
-        dragOffset = CGSize(
-            width: position.x - dragStart.x,
-            height: position.y - dragStart.y
-        )
-        
-        // Update position of the selected element
-        guard let selectedId = selectedElementId else { return }
-        for i in 0..<elements.count {
-            var element = elements[i]
-            if element.id == selectedId {
-                var newPosition = element.position
-                newPosition.x += dragOffset.width
-                newPosition.y += dragOffset.height
-                element.position = newPosition
-                elements[i] = element
-                break
-            }
-        }
-        
-        // Reset for next drag update
-        dragStart = position
-    }
-    
-    /**
-     * Ends dragging the selected element
-     */
-    func endDrag() {
-        isDragging = false
-        dragOffset = .zero
     }
     
     /**
