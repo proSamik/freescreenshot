@@ -309,23 +309,44 @@ struct BackgroundPicker: View {
                     .font(.headline)
                     .padding(.top, 20)
                 
-                Spacer()
-                
-                // Preview
-                if let image = viewModel.image {
-                    Image(nsImage: image)
-                        .resizable()
-                        .scaledToFit()
-                        .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
-                        .id(refreshPreview)
-                } else {
-                    Text("No preview available")
-                        .foregroundColor(.secondary)
+                // Preview container
+                GeometryReader { geo in
+                    // Fixed size container for the image preview
+                    ZStack {
+                        // Static background that doesn't rotate
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(NSColor.windowBackgroundColor).opacity(0.5))
+                        
+                        // Image preview with proper 3D transformation
+                        if let image = viewModel.image {
+                            // Use SwiftUI's built-in 3D rotation for the preview only
+                            Image(nsImage: image)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(
+                                    width: min(geo.size.width * 0.8, geo.size.height * 0.8),
+                                    height: min(geo.size.width * 0.8, geo.size.height * 0.8)
+                                )
+                                // Apply 3D rotation using SwiftUI's built-in effect
+                                .rotation3DEffect(
+                                    tempIs3DEffect ? getRotationAngle() : .zero,
+                                    axis: tempIs3DEffect ? getRotationAxis() : (x: 0, y: 0, z: 1),
+                                    anchor: getRotationAnchor(),
+                                    perspective: tempIs3DEffect ? 0.2 : 0
+                                )
+                                .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
+                                .id(refreshPreview)
+                        } else {
+                            Text("No preview available")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 
                 Spacer()
             }
-            .frame(minWidth: 400)
+            .frame(minWidth: 300)
             .padding(.horizontal, 16)
         }
         .frame(width: 800, height: 700)
@@ -397,6 +418,58 @@ struct BackgroundPicker: View {
             return "arrow.down"
         case .bottomRight:
             return "arrow.down.right"
+        }
+    }
+    
+    /**
+     * Returns the 3D rotation angle based on selected direction
+     */
+    private func getRotationAngle() -> Angle {
+        switch tempPerspective3DDirection {
+        case .topLeft, .top, .topRight:
+            return .degrees(15) // Increase from 10 to 15 degrees
+        case .bottomLeft, .bottom, .bottomRight:
+            return .degrees(-15) // Increase from -10 to -15 degrees
+        }
+    }
+    
+    /**
+     * Returns the 3D rotation axis based on selected direction
+     */
+    private func getRotationAxis() -> (x: CGFloat, y: CGFloat, z: CGFloat) {
+        switch tempPerspective3DDirection {
+        case .topLeft:
+            return (x: 1, y: 1, z: 0)
+        case .top:
+            return (x: 1, y: 0, z: 0)
+        case .topRight:
+            return (x: 1, y: -1, z: 0)
+        case .bottomLeft:
+            return (x: -1, y: 1, z: 0)
+        case .bottom:
+            return (x: -1, y: 0, z: 0)
+        case .bottomRight:
+            return (x: -1, y: -1, z: 0)
+        }
+    }
+    
+    /**
+     * Returns the anchor point for rotation based on direction
+     */
+    private func getRotationAnchor() -> UnitPoint {
+        switch tempPerspective3DDirection {
+        case .topLeft:
+            return .topLeading
+        case .top:
+            return .top
+        case .topRight:
+            return .topTrailing
+        case .bottomLeft:
+            return .bottomLeading
+        case .bottom:
+            return .bottom
+        case .bottomRight:
+            return .bottomTrailing
         }
     }
 } 

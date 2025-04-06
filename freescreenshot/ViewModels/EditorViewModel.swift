@@ -107,24 +107,6 @@ class EditorViewModel: ObservableObject {
         
         // For non-background operations, just use the original image with corner radius
         if backgroundType == .none {
-            if is3DEffect {
-                // Apply 3D effect to original image without background
-                if let perspectiveImage = ImageUtilities.apply3DEffect(
-                    to: originalImage,
-                    direction: perspective3DDirection,
-                    intensity: 0.2
-                ) {
-                    // Apply corner radius to the perspective image
-                    if cornerRadius > 0 {
-                        self.image = applyCornerRadius(to: perspectiveImage, radius: cornerRadius)
-                    } else {
-                        self.image = perspectiveImage
-                    }
-                    objectWillChange.send()
-                    return
-                }
-            }
-            
             // Apply corner radius to the original image if needed
             if cornerRadius > 0 {
                 self.image = applyCornerRadius(to: originalImage, radius: cornerRadius)
@@ -229,93 +211,12 @@ class EditorViewModel: ObservableObject {
         
         let imageRect = CGRect(origin: drawingOrigin, size: drawingSize)
         
-        // If 3D effect is enabled, draw the transformed image
-        if is3DEffect {
-            // First create an image with just the transformed image content
-            let transformedImage = NSImage(size: imageSize)
-            transformedImage.lockFocus()
-            originalImage.draw(in: CGRect(origin: .zero, size: imageSize))
-            transformedImage.unlockFocus()
-            
-            // Apply 3D effect to the image only
-            if let perspectiveImage = ImageUtilities.apply3DEffect(
-                to: transformedImage,
-                direction: perspective3DDirection,
-                intensity: 0.2
-            ) {
-                // Draw the 3D transformed image centered on the background
-                let perspectiveSize = perspectiveImage.size
-                
-                // Scale the perspective image to fit within our drawing area
-                let perspectiveRatio = perspectiveSize.width / perspectiveSize.height
-                var perspectiveDrawSize = perspectiveSize
-                
-                if perspectiveRatio > canvasRatio {
-                    perspectiveDrawSize.width = drawingSize.width
-                    perspectiveDrawSize.height = perspectiveDrawSize.width / perspectiveRatio
-                } else {
-                    perspectiveDrawSize.height = drawingSize.height
-                    perspectiveDrawSize.width = perspectiveDrawSize.height * perspectiveRatio
-                }
-                
-                let perspectiveX = (resultSize.width - perspectiveDrawSize.width) / 2
-                let perspectiveY = (resultSize.height - perspectiveDrawSize.height) / 2
-                
-                // If corner radius is set, draw with rounded corners
-                if cornerRadius > 0 {
-                    let cornerRadiusScaled = min(
-                        cornerRadius,
-                        min(perspectiveDrawSize.width, perspectiveDrawSize.height) / 2
-                    )
-                    
-                    let path = NSBezierPath(roundedRect: NSRect(
-                        x: perspectiveX,
-                        y: perspectiveY,
-                        width: perspectiveDrawSize.width,
-                        height: perspectiveDrawSize.height
-                    ), xRadius: cornerRadiusScaled, yRadius: cornerRadiusScaled)
-                    
-                    // Save the current graphics state to restore later
-                    NSGraphicsContext.current?.saveGraphicsState()
-                    
-                    // Set the path as clipping path
-                    path.setClip()
-                    
-                    // Draw the image within the clipping path
-                    perspectiveImage.draw(
-                        in: CGRect(x: perspectiveX, y: perspectiveY, width: perspectiveDrawSize.width, height: perspectiveDrawSize.height),
-                        from: .zero,
-                        operation: .sourceOver,
-                        fraction: 1.0
-                    )
-                    
-                    // Restore the graphics state
-                    NSGraphicsContext.current?.restoreGraphicsState()
-                } else {
-                    // Draw without rounded corners
-                    perspectiveImage.draw(
-                        in: CGRect(x: perspectiveX, y: perspectiveY, width: perspectiveDrawSize.width, height: perspectiveDrawSize.height),
-                        from: .zero,
-                        operation: .sourceOver,
-                        fraction: 1.0
-                    )
-                }
-            } else {
-                // Fallback if transformation fails - draw with or without rounded corners
-                drawImageWithCornerRadius(
-                    originalImage,
-                    in: imageRect,
-                    radius: cornerRadius
-                )
-            }
-        } else {
-            // For non-3D mode, draw the image with or without rounded corners
-            drawImageWithCornerRadius(
-                originalImage,
-                in: imageRect,
-                radius: cornerRadius
-            )
-        }
+        // Draw the image with corner radius - 3D effect will be handled by SwiftUI
+        drawImageWithCornerRadius(
+            originalImage,
+            in: imageRect,
+            radius: cornerRadius
+        )
         
         resultImage.unlockFocus()
         self.image = resultImage
@@ -386,44 +287,225 @@ class EditorViewModel: ObservableObject {
     func exportImage() -> NSImage? {
         guard let image = image else { return nil }
         
+        // If no 3D effect is selected, just return the current image with elements
+        if !is3DEffect {
+            let imageSize = image.size
+            let exportImage = NSImage(size: imageSize)
+            
+            exportImage.lockFocus()
+            
+            // Draw the base image with background
+            image.draw(in: CGRect(origin: .zero, size: imageSize))
+            
+            // Render all elements on top
+            let context = NSGraphicsContext.current
+            for element in elements {
+                if let textElement = element as? TextElement {
+                    let attributedString = NSAttributedString(
+                        string: textElement.text,
+                        attributes: [
+                            .font: NSFont.systemFont(ofSize: textElement.fontSize),
+                            .foregroundColor: NSColor(textElement.fontColor)
+                        ]
+                    )
+                    
+                    context?.saveGraphicsState()
+                    let transform = NSAffineTransform()
+                    transform.translateX(by: textElement.position.x, yBy: textElement.position.y)
+                    transform.rotate(byRadians: textElement.rotation.radians)
+                    transform.scale(by: textElement.scale)
+                    transform.concat()
+                    
+                    let textSize = attributedString.size()
+                    attributedString.draw(at: NSPoint(x: -textSize.width / 2, y: -textSize.height / 2))
+                    
+                    context?.restoreGraphicsState()
+                }
+                
+                // Render other element types as needed
+            }
+            
+            exportImage.unlockFocus()
+            return exportImage
+        }
+        
+        // For 3D effect, we need to create the final image with perspective
         let imageSize = image.size
-        let exportImage = NSImage(size: imageSize)
+        let exportSize = CGSize(width: imageSize.width * 1.5, height: imageSize.height * 1.5) // More padding for stronger 3D
+        let exportImage = NSImage(size: exportSize)
         
         exportImage.lockFocus()
         
-        // Draw the base image with background
-        image.draw(in: CGRect(origin: .zero, size: imageSize))
+        // Clear background
+        NSColor.clear.set()
+        NSRect(origin: .zero, size: exportSize).fill()
         
-        // Render all elements on top
-        let context = NSGraphicsContext.current
-        for element in elements {
-            if let textElement = element as? TextElement {
-                let attributedString = NSAttributedString(
-                    string: textElement.text,
-                    attributes: [
-                        .font: NSFont.systemFont(ofSize: textElement.fontSize),
-                        .foregroundColor: NSColor(textElement.fontColor)
-                    ]
-                )
-                
-                context?.saveGraphicsState()
-                let transform = NSAffineTransform()
-                transform.translateX(by: textElement.position.x, yBy: textElement.position.y)
-                transform.rotate(byRadians: textElement.rotation.radians)
-                transform.scale(by: textElement.scale)
-                transform.concat()
-                
-                let textSize = attributedString.size()
-                attributedString.draw(at: NSPoint(x: -textSize.width / 2, y: -textSize.height / 2))
-                
-                context?.restoreGraphicsState()
-            }
+        // Get perspective transform parameters based on selected direction
+        let transform = getPerspectiveTransform(for: perspective3DDirection, size: imageSize)
+        
+        // Apply transform
+        let translateX = (exportSize.width - imageSize.width) / 2
+        let translateY = (exportSize.height - imageSize.height) / 2
+        
+        NSGraphicsContext.current?.saveGraphicsState()
+        
+        // Create a transform that centers the image and applies perspective
+        let affineTransform = NSAffineTransform()
+        affineTransform.translateX(by: translateX, yBy: translateY)
+        
+        // Apply the transform to the graphics context
+        affineTransform.concat()
+        
+        // Create shadow for 3D effect
+        let shadow = NSShadow()
+        shadow.shadowColor = NSColor.black.withAlphaComponent(0.5)
+        shadow.shadowOffset = NSSize(width: transform.shadowOffsetX, height: transform.shadowOffsetY)
+        shadow.shadowBlurRadius = 20 // Increased blur radius
+        shadow.set()
+        
+        // Set up 3D transform using Core Graphics
+        if let context = NSGraphicsContext.current?.cgContext {
+            // Apply 3D transform
+            var transform3D = CATransform3DIdentity
+            transform3D.m34 = -1.0 / 300.0 // Increased perspective depth (was 500)
             
-            // Render other element types as needed
+            // Apply rotation based on direction
+            transform3D = CATransform3DRotate(
+                transform3D,
+                transform.rotationX,
+                1, 0, 0
+            )
+            transform3D = CATransform3DRotate(
+                transform3D,
+                transform.rotationY,
+                0, 1, 0
+            )
+            
+            // Apply slight scale to enhance the perspective effect
+            transform3D = CATransform3DScale(transform3D, 1.1, 1.1, 1.0)
+            
+            // Apply CATransform3D to CGContext
+            context.concatenate(CATransform3DGetAffineTransform(transform3D))
+            
+            // Now draw the image with the 3D transform
+            image.draw(in: CGRect(origin: .zero, size: imageSize))
+            
+            // Draw all elements on top
+            for element in elements {
+                if let textElement = element as? TextElement {
+                    let attributedString = NSAttributedString(
+                        string: textElement.text,
+                        attributes: [
+                            .font: NSFont.systemFont(ofSize: textElement.fontSize),
+                            .foregroundColor: NSColor(textElement.fontColor)
+                        ]
+                    )
+                    
+                    NSGraphicsContext.current?.saveGraphicsState()
+                    let elementTransform = NSAffineTransform()
+                    elementTransform.translateX(by: textElement.position.x, yBy: textElement.position.y)
+                    elementTransform.rotate(byRadians: textElement.rotation.radians)
+                    elementTransform.scale(by: textElement.scale)
+                    elementTransform.concat()
+                    
+                    let textSize = attributedString.size()
+                    attributedString.draw(at: NSPoint(x: -textSize.width / 2, y: -textSize.height / 2))
+                    
+                    NSGraphicsContext.current?.restoreGraphicsState()
+                }
+                
+                // Render other element types as needed
+            }
+        } else {
+            // Fallback if context is not available
+            image.draw(in: CGRect(origin: CGPoint(x: translateX, y: translateY), size: imageSize))
         }
         
+        NSGraphicsContext.current?.restoreGraphicsState()
+        
         exportImage.unlockFocus()
-        return exportImage
+        
+        // Trim any excess transparent padding
+        return trimTransparentPadding(exportImage)
+    }
+    
+    /**
+     * Helper to get perspective transform parameters based on direction
+     */
+    private func getPerspectiveTransform(for direction: Perspective3DDirection, size: CGSize) -> (rotationX: CGFloat, rotationY: CGFloat, shadowOffsetX: CGFloat, shadowOffsetY: CGFloat) {
+        // Convert degrees to radians - increase from 10 to 15 degrees for more visible effect
+        let angleInRadians = CGFloat.pi / 12  // 15 degrees
+        
+        switch direction {
+        case .topLeft:
+            return (rotationX: angleInRadians, rotationY: -angleInRadians, shadowOffsetX: -20, shadowOffsetY: 20)
+        case .top:
+            return (rotationX: angleInRadians, rotationY: 0, shadowOffsetX: 0, shadowOffsetY: 20)
+        case .topRight:
+            return (rotationX: angleInRadians, rotationY: angleInRadians, shadowOffsetX: 20, shadowOffsetY: 20)
+        case .bottomLeft:
+            return (rotationX: -angleInRadians, rotationY: -angleInRadians, shadowOffsetX: -20, shadowOffsetY: -20)
+        case .bottom:
+            return (rotationX: -angleInRadians, rotationY: 0, shadowOffsetX: 0, shadowOffsetY: -20)
+        case .bottomRight:
+            return (rotationX: -angleInRadians, rotationY: angleInRadians, shadowOffsetX: 20, shadowOffsetY: -20)
+        }
+    }
+    
+    /**
+     * Trims transparent padding around an image
+     */
+    private func trimTransparentPadding(_ image: NSImage) -> NSImage {
+        guard let bitmap = image.representations.first as? NSBitmapImageRep else {
+            return image
+        }
+        
+        let width = bitmap.pixelsWide
+        let height = bitmap.pixelsHigh
+        
+        var minX = width
+        var minY = height
+        var maxX = 0
+        var maxY = 0
+        
+        // Find bounds of non-transparent pixels
+        for y in 0..<height {
+            for x in 0..<width {
+                let alpha = bitmap.colorAt(x: x, y: y)?.alphaComponent ?? 0
+                if alpha > 0.05 { // Consider anything barely visible
+                    minX = min(minX, x)
+                    minY = min(minY, y)
+                    maxX = max(maxX, x)
+                    maxY = max(maxY, y)
+                }
+            }
+        }
+        
+        // Add small padding
+        let padding = 20
+        minX = max(0, minX - padding)
+        minY = max(0, minY - padding)
+        maxX = min(width - 1, maxX + padding)
+        maxY = min(height - 1, maxY + padding)
+        
+        // If no non-transparent pixels found, return original
+        if minX >= maxX || minY >= maxY {
+            return image
+        }
+        
+        let croppedWidth = maxX - minX + 1
+        let croppedHeight = maxY - minY + 1
+        
+        guard let cgImage = bitmap.cgImage else {
+            return image
+        }
+        
+        // Crop the image
+        if let croppedCGImage = cgImage.cropping(to: CGRect(x: minX, y: height - maxY - 1, width: croppedWidth, height: croppedHeight)) {
+            return NSImage(cgImage: croppedCGImage, size: NSSize(width: croppedWidth, height: croppedHeight))
+        }
+        
+        return image
     }
     
     /**
