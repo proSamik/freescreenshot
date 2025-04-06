@@ -264,7 +264,7 @@ struct EditorView: View {
         guard let exportedImage = viewModel.exportImage() else { return }
         
         let savePanel = NSSavePanel()
-        savePanel.allowedContentTypes = [.png]
+        savePanel.allowedContentTypes = [.png, .jpeg]
         savePanel.canCreateDirectories = true
         savePanel.isExtensionHidden = false
         savePanel.title = "Save Screenshot"
@@ -275,15 +275,31 @@ struct EditorView: View {
         savePanel.beginSheetModal(for: NSApp.keyWindow ?? NSWindow()) { response in
             if response == .OK {
                 if let url = savePanel.url {
-                    // Convert NSImage to PNG data
-                    if let pngData = exportedImage.tiffRepresentation,
-                       let bitmap = NSBitmapImageRep(data: pngData),
-                       let data = bitmap.representation(using: .png, properties: [:]) {
-                        do {
-                            try data.write(to: url)
-                            print("Image saved successfully to \(url)")
-                        } catch {
-                            print("Error saving image: \(error)")
+                    // Get the file extension
+                    let isJpeg = url.pathExtension.lowercased() == "jpg" || url.pathExtension.lowercased() == "jpeg"
+                    
+                    // Convert NSImage to appropriate format (JPEG for smaller file size if selected)
+                    if let tiffData = exportedImage.tiffRepresentation,
+                       let bitmap = NSBitmapImageRep(data: tiffData) {
+                        
+                        let fileData: Data?
+                        
+                        if isJpeg {
+                            // Use JPEG with 80% quality for optimal size/quality balance (under 1MB)
+                            fileData = bitmap.representation(using: .jpeg, 
+                                                          properties: [.compressionFactor: NSNumber(value: 0.8)])
+                        } else {
+                            // Use PNG for lossless quality when requested
+                            fileData = bitmap.representation(using: .png, properties: [:])
+                        }
+                        
+                        if let data = fileData {
+                            do {
+                                try data.write(to: url)
+                                print("Image saved successfully to \(url)")
+                            } catch {
+                                print("Error saving image: \(error)")
+                            }
                         }
                     }
                 }
