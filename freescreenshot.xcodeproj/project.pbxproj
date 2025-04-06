@@ -35,16 +35,6 @@
 			path = freescreenshot;
 			sourceTree = "<group>";
 		};
-		C14568092DA2B5A1006C9032 /* freescreenshotTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = freescreenshotTests;
-			sourceTree = "<group>";
-		};
-		C14568132DA2B5A1006C9032 /* freescreenshotUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = freescreenshotUITests;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -76,8 +66,7 @@
 			isa = PBXGroup;
 			children = (
 				C14567FA2DA2B57E006C9032 /* freescreenshot */,
-				C14568092DA2B5A1006C9032 /* freescreenshotTests */,
-				C14568132DA2B5A1006C9032 /* freescreenshotUITests */,
+				C14568362DA2BC6C006C9032 /* Frameworks */,
 				C14567F92DA2B57E006C9032 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -90,6 +79,13 @@
 				C14568102DA2B5A1006C9032 /* freescreenshotUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		C14568362DA2BC6C006C9032 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -130,9 +126,6 @@
 			dependencies = (
 				C14568082DA2B5A1006C9032 /* PBXTargetDependency */,
 			);
-			fileSystemSynchronizedGroups = (
-				C14568092DA2B5A1006C9032 /* freescreenshotTests */,
-			);
 			name = freescreenshotTests;
 			packageProductDependencies = (
 			);
@@ -152,9 +145,6 @@
 			);
 			dependencies = (
 				C14568122DA2B5A1006C9032 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				C14568132DA2B5A1006C9032 /* freescreenshotUITests */,
 			);
 			name = freescreenshotUITests;
 			packageProductDependencies = (
@@ -195,6 +185,9 @@
 			);
 			mainGroup = C14567EF2DA2B57E006C9032;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				C14568352DA2BBBD006C9032 /* XCRemoteSwiftPackageReference "HotKey" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C14567F92DA2B57E006C9032 /* Products */;
 			projectDirPath = "";
@@ -541,6 +534,17 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		C14568352DA2BBBD006C9032 /* XCRemoteSwiftPackageReference "HotKey" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/soffes/HotKey";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
 	};
 	rootObject = C14567F02DA2B57E006C9032 /* Project object */;
 }
