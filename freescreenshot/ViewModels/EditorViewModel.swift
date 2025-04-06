@@ -74,6 +74,18 @@ class EditorViewModel: ObservableObject {
         
         // For non-background operations, just use the original image
         if backgroundType == .none {
+            if is3DEffect {
+                // Apply 3D effect to original image without background
+                if let perspectiveImage = ImageUtilities.apply3DEffect(
+                    to: originalImage,
+                    direction: perspective3DDirection,
+                    intensity: 0.2
+                ) {
+                    self.image = perspectiveImage
+                    objectWillChange.send()
+                    return
+                }
+            }
             self.image = originalImage
             return
         }
@@ -88,7 +100,7 @@ class EditorViewModel: ObservableObject {
             height: imageSize.height + padding * 2
         )
         
-        // Create a new larger image to draw on
+        // Create a new larger image to draw on for the background
         let resultImage = NSImage(size: resultSize)
         resultImage.lockFocus()
         
@@ -143,28 +155,36 @@ class EditorViewModel: ObservableObject {
             height: imageSize.height
         )
         
-        // Draw the original image on top of the background
-        originalImage.draw(in: imageRect, from: .zero, operation: .sourceOver, fraction: 1.0)
-        
-        resultImage.unlockFocus()
-        
-        // If 3D effect is enabled, apply it to the combined image
+        // If 3D effect is enabled, draw the transformed image
         if is3DEffect {
-            guard let perspectiveImage = ImageUtilities.apply3DEffect(
-                to: resultImage,
+            // First create an image with just the transformed image content
+            let transformedImage = NSImage(size: imageSize)
+            transformedImage.lockFocus()
+            originalImage.draw(in: CGRect(origin: .zero, size: imageSize))
+            transformedImage.unlockFocus()
+            
+            // Apply 3D effect to the image only
+            if let perspectiveImage = ImageUtilities.apply3DEffect(
+                to: transformedImage,
                 direction: perspective3DDirection,
                 intensity: 0.2
-            ) else {
-                self.image = resultImage
-                objectWillChange.send()
-                return
+            ) {
+                // Draw the 3D transformed image centered on the background
+                let perspectiveSize = perspectiveImage.size
+                let centerX = (resultSize.width - perspectiveSize.width) / 2
+                let centerY = (resultSize.height - perspectiveSize.height) / 2
+                perspectiveImage.draw(in: CGRect(x: centerX, y: centerY, width: perspectiveSize.width, height: perspectiveSize.height))
+            } else {
+                // Fallback if transformation fails
+                originalImage.draw(in: imageRect, from: .zero, operation: .sourceOver, fraction: 1.0)
             }
-            
-            self.image = perspectiveImage
         } else {
-            self.image = resultImage
+            // For non-3D mode, just draw the image directly
+            originalImage.draw(in: imageRect, from: .zero, operation: .sourceOver, fraction: 1.0)
         }
         
+        resultImage.unlockFocus()
+        self.image = resultImage
         objectWillChange.send()
     }
     

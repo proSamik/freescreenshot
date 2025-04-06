@@ -32,6 +32,7 @@ struct ContentView: View {
                 }
             }
         }
+        .frame(minWidth: 800, minHeight: 600)
     }
     
     /**
@@ -42,6 +43,7 @@ struct ContentView: View {
             Image(systemName: "camera.viewfinder")
                 .font(.system(size: 80))
                 .foregroundColor(.accentColor)
+                .padding(.top, 40)
             
             Text("Free Screenshot")
                 .font(.largeTitle)
@@ -54,29 +56,30 @@ struct ContentView: View {
             
             // Drag & Drop Zone
             dropZoneView
-                .padding(.vertical, 20)
+                .padding(.vertical, 30)
             
             VStack(alignment: .leading, spacing: 15) {
                 instructionRow(icon: "keyboard", text: "Press Cmd+Shift+7 to capture a screenshot")
                 instructionRow(icon: "wand.and.stars", text: "Add backgrounds, arrows, text, and effects")
                 instructionRow(icon: "square.and.arrow.up", text: "Export your enhanced screenshot")
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 20)
+            .padding(.horizontal, 30)
+            .padding(.bottom, 30)
             
             Button(action: {
                 appState.initiateScreenCapture()
             }) {
                 Text("Take Screenshot")
                     .fontWeight(.semibold)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
                     .background(Color.accentColor)
                     .foregroundColor(.white)
                     .cornerRadius(10)
             }
             .buttonStyle(.plain)
             .keyboardShortcut("7", modifiers: [.command, .shift])
+            .padding(.bottom, 40)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(NSColor.windowBackgroundColor))
@@ -96,7 +99,7 @@ struct ContentView: View {
                 .font(.headline)
                 .foregroundColor(isDropTargeted ? .accentColor : .primary)
         }
-        .frame(width: 300, height: 120)
+        .frame(width: 300, height: 140)
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .stroke(isDropTargeted ? Color.accentColor : Color.secondary.opacity(0.5), 

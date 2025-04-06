@@ -30,16 +30,25 @@ struct EditorView: View {
                     .font(.headline)
                 Spacer()
             }
-            .padding(.vertical, 8)
+            .padding(.vertical, 12)
             .background(Color(NSColor.controlBackgroundColor))
             
             // Main editor canvas
-            ScrollView([.horizontal, .vertical], showsIndicators: true) {
-                editorCanvasView
-                    .frame(minWidth: 600, minHeight: 400)
-                    .padding()
+            GeometryReader { geometry in
+                ScrollView([.horizontal, .vertical], showsIndicators: true) {
+                    editorCanvasView
+                        // Using separate modifiers to avoid parameter order issues
+                        .frame(width: max(min(600, geometry.size.width - 40), 0))
+                        .frame(height: max(min(400, geometry.size.height - 40), 0))
+                        .frame(maxWidth: .infinity)
+                        .frame(maxHeight: .infinity)
+                        .padding(20)
+                }
+                .background(Color(NSColor.windowBackgroundColor))
+                .frame(maxWidth: .infinity)
+                .frame(maxHeight: .infinity)
             }
-            .background(Color(NSColor.windowBackgroundColor))
+            .frame(minHeight: 450)
             
             // Bottom toolbar with background and export buttons
             HStack(spacing: 16) {
@@ -80,9 +89,11 @@ struct EditorView: View {
                         .cornerRadius(6)
                 }
             }
-            .padding()
+            .padding(16)
             .background(Color(NSColor.controlBackgroundColor))
         }
+        .frame(minWidth: 700)
+        .frame(minHeight: 600)
         .sheet(isPresented: $isShowingBackgroundPicker) {
             BackgroundPicker(viewModel: viewModel, isPresented: $isShowingBackgroundPicker)
         }
@@ -116,17 +127,27 @@ struct EditorView: View {
         // Show only the processed image with background
         Group {
             if let image = viewModel.image {
-                Image(nsImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding()
-                    .id(image.hashValue) // Force refresh when image changes
+                GeometryReader { geo in
+                    Image(nsImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        // Using separate modifiers to avoid parameter order issues
+                        .frame(width: geo.size.width)
+                        .frame(height: geo.size.height)
+                        .frame(alignment: .center)
+                        .id(image.hashValue) // Force refresh when image changes
+                }
+                .frame(maxWidth: .infinity)
+                .frame(maxHeight: .infinity)
             } else {
                 Color(NSColor.windowBackgroundColor)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(maxWidth: .infinity)
+                    .frame(maxHeight: .infinity)
             }
         }
+        .background(Color(NSColor.windowBackgroundColor).opacity(0.5))
+        .cornerRadius(8)
+        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
     }
 }
 

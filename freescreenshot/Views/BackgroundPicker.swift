@@ -45,7 +45,7 @@ struct BackgroundPicker: View {
         VStack(spacing: 16) {
             Text("Background Options")
                 .font(.headline)
-                .padding(.top)
+                .padding(.top, 20)
             
             // Background type selector
             Picker("Background Type", selection: $tempBackgroundType) {
@@ -54,7 +54,7 @@ struct BackgroundPicker: View {
                 }
             }
             .pickerStyle(.segmented)
-            .padding(.horizontal)
+            .padding(.horizontal, 24)
             .onChange(of: tempBackgroundType) { _ in
                 updateAndApplyChanges()
             }
@@ -129,17 +129,20 @@ struct BackgroundPicker: View {
                         .foregroundColor(.secondary)
                 }
             }
-            .padding()
-            .frame(height: 150)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
+            .frame(minHeight: 150) // This line is correct and should remain
             
             Divider()
+                .padding(.horizontal, 16)
             
             // 3D effect toggle
             Toggle("Apply 3D Perspective Effect", isOn: $tempIs3DEffect)
                 .onChange(of: tempIs3DEffect) { _ in
                     updateAndApplyChanges()
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 24)
+                .padding(.top, 8)
             
             // 3D perspective direction selector (only shown when 3D effect is enabled)
             if tempIs3DEffect {
@@ -175,19 +178,29 @@ struct BackgroundPicker: View {
                         .padding(.horizontal)
                     }
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 8)
                 .transition(.opacity)
             }
             
-            // Preview
+            // Preview with proper size constraints
+            Text("Preview")
+                .font(.subheadline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 24)
+                .padding(.top, 8)
+            
             if let image = viewModel.image {
-                Image(nsImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: 200)
-                    .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
-                    .padding()
-                    .id(refreshPreview)
+                GeometryReader { geo in
+                    Image(nsImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: geo.size.width - 32, maxHeight: 200)
+                        .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
+                        .id(refreshPreview)
+                }
+                .frame(minHeight: 220, maxHeight: 220)
+                .padding(.horizontal, 16)
             }
             
             // Buttons
@@ -201,6 +214,7 @@ struct BackgroundPicker: View {
                     isPresented = false
                 }
                 .keyboardShortcut(.escape)
+                .padding(.leading, 16)
                 
                 Spacer()
                 
@@ -211,10 +225,11 @@ struct BackgroundPicker: View {
                 }
                 .keyboardShortcut(.return)
                 .buttonStyle(.borderedProminent)
+                .padding(.trailing, 16)
             }
-            .padding()
+            .padding(.vertical, 16)
         }
-        .frame(width: 500, height: 550)
+        .frame(width: 520) // Removed minHeight argument to fix the error
         .onAppear {
             // Apply any existing background settings when picker appears
             updateAndApplyChanges()
