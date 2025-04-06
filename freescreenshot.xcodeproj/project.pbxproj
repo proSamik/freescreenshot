@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		C14568382DA2C128006C9032 /* HotKey in Frameworks */ = {isa = PBXBuildFile; productRef = C14568372DA2C128006C9032 /* HotKey */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		C14568072DA2B5A1006C9032 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -42,6 +46,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C14568382DA2C128006C9032 /* HotKey in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -108,6 +113,7 @@
 			);
 			name = freescreenshot;
 			packageProductDependencies = (
+				C14568372DA2C128006C9032 /* HotKey */,
 			);
 			productName = freescreenshot;
 			productReference = C14567F82DA2B57E006C9032 /* freescreenshot.app */;
@@ -545,6 +551,14 @@
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C14568372DA2C128006C9032 /* HotKey */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C14568352DA2BBBD006C9032 /* XCRemoteSwiftPackageReference "HotKey" */;
+			productName = HotKey;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = C14567F02DA2B57E006C9032 /* Project object */;
 }
