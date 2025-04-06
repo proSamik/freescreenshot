@@ -133,8 +133,49 @@ struct EditorView: View {
      * Background color/pattern layer
      */
     private var backgroundLayer: some View {
-        Color(NSColor.windowBackgroundColor)
-            .ignoresSafeArea()
+        Group {
+            if viewModel.backgroundType != .none {
+                // Create a background based on the selected type in viewModel
+                Group {
+                    switch viewModel.backgroundType {
+                    case .solid:
+                        // Display solid color background
+                        viewModel.backgroundColor
+                            .ignoresSafeArea()
+                    
+                    case .gradient:
+                        // Display gradient background
+                        LinearGradient(
+                            gradient: viewModel.backgroundGradient,
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        .ignoresSafeArea()
+                    
+                    case .image:
+                        // Display image background if available
+                        if let bgImage = viewModel.backgroundImage {
+                            Image(nsImage: bgImage)
+                                .resizable()
+                                .scaledToFill()
+                                .ignoresSafeArea()
+                        } else {
+                            Color(NSColor.windowBackgroundColor)
+                                .ignoresSafeArea()
+                        }
+                    
+                    default:
+                        // Fallback to window background color
+                        Color(NSColor.windowBackgroundColor)
+                            .ignoresSafeArea()
+                    }
+                }
+            } else {
+                // No background selected, use white for a clean look
+                Color.white
+                    .ignoresSafeArea()
+            }
+        }
     }
     
     /**

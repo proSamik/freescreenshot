@@ -66,6 +66,12 @@ class EditorViewModel: ObservableObject {
     func applyBackground() {
         guard let originalImage = originalImage else { return }
         
+        // For non-background operations, just use the original image
+        if backgroundType == .none {
+            self.image = originalImage
+            return
+        }
+        
         let imageSize = originalImage.size
         let backgroundRect = CGRect(origin: .zero, size: imageSize)
         
@@ -118,7 +124,7 @@ class EditorViewModel: ObservableObject {
             }
             
         case .none:
-            // No background, just fill with white to create a clean slate
+            // No background, use white for a clean slate
             NSColor.white.set()
             NSBezierPath.fill(backgroundRect)
         }
@@ -145,10 +151,8 @@ class EditorViewModel: ObservableObject {
         
         resultImage.unlockFocus()
         
-        // Update the main image
+        // Update the main image and force a UI update
         self.image = resultImage
-        
-        // Force a UI update
         objectWillChange.send()
     }
     

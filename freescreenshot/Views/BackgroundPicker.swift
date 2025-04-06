@@ -14,6 +14,10 @@ struct BackgroundPicker: View {
     @ObservedObject var viewModel: EditorViewModel
     @Binding var isPresented: Bool
     @State private var selectedGradientPreset = 0
+    @State private var tempBackgroundType: BackgroundType
+    @State private var tempBackgroundColor: Color
+    @State private var tempBackgroundGradient: Gradient
+    @State private var tempIs3DEffect: Bool
     
     // Predefined gradient presets
     private let gradientPresets: [Gradient] = [
@@ -25,6 +29,15 @@ struct BackgroundPicker: View {
         Gradient(colors: [.yellow, .green])
     ]
     
+    init(viewModel: EditorViewModel, isPresented: Binding<Bool>) {
+        self.viewModel = viewModel
+        self._isPresented = isPresented
+        self._tempBackgroundType = State(initialValue: viewModel.backgroundType)
+        self._tempBackgroundColor = State(initialValue: viewModel.backgroundColor)
+        self._tempBackgroundGradient = State(initialValue: viewModel.backgroundGradient)
+        self._tempIs3DEffect = State(initialValue: viewModel.is3DEffect)
+    }
+    
     var body: some View {
         VStack(spacing: 16) {
             Text("Background Options")
@@ -32,29 +45,29 @@ struct BackgroundPicker: View {
                 .padding(.top)
             
             // Background type selector
-            Picker("Background Type", selection: $viewModel.backgroundType) {
+            Picker("Background Type", selection: $tempBackgroundType) {
                 ForEach(BackgroundType.allCases) { type in
                     Text(type.displayName).tag(type)
                 }
             }
             .pickerStyle(.segmented)
             .padding(.horizontal)
-            .onChange(of: viewModel.backgroundType) { _ in
-                viewModel.applyBackground()
+            .onChange(of: tempBackgroundType) { _ in
+                updateAndApplyChanges()
             }
             
             // Different options based on selected background type
             Group {
-                switch viewModel.backgroundType {
+                switch tempBackgroundType {
                 case .solid:
                     VStack(alignment: .leading) {
                         Text("Color")
                             .font(.subheadline)
                         
-                        ColorPicker("", selection: $viewModel.backgroundColor)
+                        ColorPicker("", selection: $tempBackgroundColor)
                             .labelsHidden()
-                            .onChange(of: viewModel.backgroundColor) { _ in
-                                viewModel.applyBackground()
+                            .onChange(of: tempBackgroundColor) { _ in
+                                updateAndApplyChanges()
                             }
                     }
                     
@@ -81,8 +94,8 @@ struct BackgroundPicker: View {
                                         )
                                         .onTapGesture {
                                             selectedGradientPreset = index
-                                            viewModel.backgroundGradient = gradientPresets[index]
-                                            viewModel.applyBackground()
+                                            tempBackgroundGradient = gradientPresets[index]
+                                            updateAndApplyChanges()
                                         }
                                 }
                             }
@@ -119,9 +132,9 @@ struct BackgroundPicker: View {
             Divider()
             
             // 3D effect toggle
-            Toggle("Apply 3D Perspective Effect", isOn: $viewModel.is3DEffect)
-                .onChange(of: viewModel.is3DEffect) { _ in
-                    viewModel.applyBackground()
+            Toggle("Apply 3D Perspective Effect", isOn: $tempIs3DEffect)
+                .onChange(of: tempIs3DEffect) { _ in
+                    updateAndApplyChanges()
                 }
                 .padding(.horizontal)
             
@@ -150,7 +163,8 @@ struct BackgroundPicker: View {
                 Spacer()
                 
                 Button("Apply") {
-                    // Keep current changes
+                    // Keep current changes and apply them permanently
+                    applyChanges()
                     isPresented = false
                 }
                 .keyboardShortcut(.return)
@@ -160,8 +174,8 @@ struct BackgroundPicker: View {
         }
         .frame(width: 500, height: 550)
         .onAppear {
-            // Make sure the background is applied when the picker appears
-            viewModel.applyBackground()
+            // Apply any existing background settings when picker appears
+            updateAndApplyChanges()
         }
     }
     
@@ -178,8 +192,26 @@ struct BackgroundPicker: View {
         if openPanel.runModal() == .OK, let url = openPanel.url {
             if let image = NSImage(contentsOf: url) {
                 viewModel.backgroundImage = image
-                viewModel.applyBackground()
+                updateAndApplyChanges()
             }
         }
+    }
+    
+    /**
+     * Updates the viewModel with temp values and applies background
+     */
+    private func updateAndApplyChanges() {
+        viewModel.backgroundType = tempBackgroundType
+        viewModel.backgroundColor = tempBackgroundColor
+        viewModel.backgroundGradient = tempBackgroundGradient
+        viewModel.is3DEffect = tempIs3DEffect
+        viewModel.applyBackground()
+    }
+    
+    /**
+     * Applies all changes permanently
+     */
+    private func applyChanges() {
+        updateAndApplyChanges()
     }
 } 
