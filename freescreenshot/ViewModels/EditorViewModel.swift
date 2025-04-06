@@ -23,6 +23,7 @@ class EditorViewModel: ObservableObject {
     @Published var perspective3DDirection: Perspective3DDirection = .bottomRight
     @Published var aspectRatio: AspectRatio = .square
     @Published var imagePadding: CGFloat = 20 // Percentage padding around the image (0-50)
+    @Published var cornerRadius: CGFloat = 0 // Corner radius for the screenshot (0-50)
     
     // Editor state
     @Published var currentTool: EditingTool = .select
@@ -104,7 +105,7 @@ class EditorViewModel: ObservableObject {
     func applyBackground() {
         guard let originalImage = originalImage else { return }
         
-        // For non-background operations, just use the original image
+        // For non-background operations, just use the original image with corner radius
         if backgroundType == .none {
             if is3DEffect {
                 // Apply 3D effect to original image without background
@@ -113,12 +114,23 @@ class EditorViewModel: ObservableObject {
                     direction: perspective3DDirection,
                     intensity: 0.2
                 ) {
-                    self.image = perspectiveImage
+                    // Apply corner radius to the perspective image
+                    if cornerRadius > 0 {
+                        self.image = applyCornerRadius(to: perspectiveImage, radius: cornerRadius)
+                    } else {
+                        self.image = perspectiveImage
+                    }
                     objectWillChange.send()
                     return
                 }
             }
-            self.image = originalImage
+            
+            // Apply corner radius to the original image if needed
+            if cornerRadius > 0 {
+                self.image = applyCornerRadius(to: originalImage, radius: cornerRadius)
+            } else {
+                self.image = originalImage
+            }
             return
         }
         
@@ -249,24 +261,123 @@ class EditorViewModel: ObservableObject {
                 let perspectiveX = (resultSize.width - perspectiveDrawSize.width) / 2
                 let perspectiveY = (resultSize.height - perspectiveDrawSize.height) / 2
                 
-                perspectiveImage.draw(
-                    in: CGRect(x: perspectiveX, y: perspectiveY, width: perspectiveDrawSize.width, height: perspectiveDrawSize.height),
-                    from: .zero,
-                    operation: .sourceOver,
-                    fraction: 1.0
-                )
+                // If corner radius is set, draw with rounded corners
+                if cornerRadius > 0 {
+                    let cornerRadiusScaled = min(
+                        cornerRadius,
+                        min(perspectiveDrawSize.width, perspectiveDrawSize.height) / 2
+                    )
+                    
+                    let path = NSBezierPath(roundedRect: NSRect(
+                        x: perspectiveX,
+                        y: perspectiveY,
+                        width: perspectiveDrawSize.width,
+                        height: perspectiveDrawSize.height
+                    ), xRadius: cornerRadiusScaled, yRadius: cornerRadiusScaled)
+                    
+                    // Save the current graphics state to restore later
+                    NSGraphicsContext.current?.saveGraphicsState()
+                    
+                    // Set the path as clipping path
+                    path.setClip()
+                    
+                    // Draw the image within the clipping path
+                    perspectiveImage.draw(
+                        in: CGRect(x: perspectiveX, y: perspectiveY, width: perspectiveDrawSize.width, height: perspectiveDrawSize.height),
+                        from: .zero,
+                        operation: .sourceOver,
+                        fraction: 1.0
+                    )
+                    
+                    // Restore the graphics state
+                    NSGraphicsContext.current?.restoreGraphicsState()
+                } else {
+                    // Draw without rounded corners
+                    perspectiveImage.draw(
+                        in: CGRect(x: perspectiveX, y: perspectiveY, width: perspectiveDrawSize.width, height: perspectiveDrawSize.height),
+                        from: .zero,
+                        operation: .sourceOver,
+                        fraction: 1.0
+                    )
+                }
             } else {
-                // Fallback if transformation fails
-                originalImage.draw(in: imageRect, from: .zero, operation: .sourceOver, fraction: 1.0)
+                // Fallback if transformation fails - draw with or without rounded corners
+                drawImageWithCornerRadius(
+                    originalImage,
+                    in: imageRect,
+                    radius: cornerRadius
+                )
             }
         } else {
-            // For non-3D mode, just draw the image directly
-            originalImage.draw(in: imageRect, from: .zero, operation: .sourceOver, fraction: 1.0)
+            // For non-3D mode, draw the image with or without rounded corners
+            drawImageWithCornerRadius(
+                originalImage,
+                in: imageRect,
+                radius: cornerRadius
+            )
         }
         
         resultImage.unlockFocus()
         self.image = resultImage
         objectWillChange.send()
+    }
+    
+    /**
+     * Draws an image with optional corner radius
+     */
+    private func drawImageWithCornerRadius(_ image: NSImage, in rect: CGRect, radius: CGFloat) {
+        if radius > 0 {
+            let cornerRadiusScaled = min(radius, min(rect.width, rect.height) / 2)
+            
+            let path = NSBezierPath(roundedRect: NSRect(
+                x: rect.origin.x,
+                y: rect.origin.y,
+                width: rect.width,
+                height: rect.height
+            ), xRadius: cornerRadiusScaled, yRadius: cornerRadiusScaled)
+            
+            // Save the current graphics state
+            NSGraphicsContext.current?.saveGraphicsState()
+            
+            // Set the path as clipping path
+            path.setClip()
+            
+            // Draw the image within the clipping path
+            image.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1.0)
+            
+            // Restore the graphics state
+            NSGraphicsContext.current?.restoreGraphicsState()
+        } else {
+            // Draw without rounded corners
+            image.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1.0)
+        }
+    }
+    
+    /**
+     * Creates a new image with corner radius applied
+     */
+    private func applyCornerRadius(to image: NSImage, radius: CGFloat) -> NSImage {
+        let size = image.size
+        let scaledRadius = min(radius, min(size.width, size.height) / 2)
+        
+        // Create a new image with the same size
+        let result = NSImage(size: size)
+        
+        result.lockFocus()
+        
+        // Create a rounded rectangle path
+        let path = NSBezierPath(roundedRect: NSRect(origin: .zero, size: size), 
+                               xRadius: scaledRadius, yRadius: scaledRadius)
+        
+        // Set the path as clipping path
+        path.setClip()
+        
+        // Draw the image within the clipping path
+        image.draw(in: NSRect(origin: .zero, size: size), from: .zero, operation: .sourceOver, fraction: 1.0)
+        
+        result.unlockFocus()
+        
+        return result
     }
     
     /**

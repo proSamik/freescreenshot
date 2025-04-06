@@ -21,6 +21,7 @@ struct BackgroundPicker: View {
     @State private var tempPerspective3DDirection: Perspective3DDirection
     @State private var tempAspectRatio: AspectRatio
     @State private var tempImagePadding: CGFloat
+    @State private var tempCornerRadius: CGFloat
     @State private var refreshPreview: Bool = false
     
     // Predefined gradient presets
@@ -43,6 +44,7 @@ struct BackgroundPicker: View {
         self._tempPerspective3DDirection = State(initialValue: viewModel.perspective3DDirection)
         self._tempAspectRatio = State(initialValue: viewModel.aspectRatio)
         self._tempImagePadding = State(initialValue: viewModel.imagePadding)
+        self._tempCornerRadius = State(initialValue: viewModel.cornerRadius)
     }
     
     var body: some View {
@@ -235,6 +237,34 @@ struct BackgroundPicker: View {
                             updateAndApplyChanges()
                         }
                 }
+                
+                // Corner radius slider
+                HStack {
+                    Text("Corner Radius: \(Int(tempCornerRadius))px")
+                        .font(.caption)
+                        .frame(width: 120, alignment: .leading)
+                    
+                    Slider(value: $tempCornerRadius, in: 0...50, step: 1)
+                        .onChange(of: tempCornerRadius) { _ in
+                            updateAndApplyChanges()
+                        }
+                }
+                
+                // Preview corner radius as a visual aid
+                if tempCornerRadius > 0 {
+                    HStack {
+                        Spacer()
+                        RoundedRectangle(cornerRadius: tempCornerRadius / 2)
+                            .stroke(Color.accentColor, lineWidth: 1)
+                            .frame(width: 80, height: 50)
+                            .background(
+                                RoundedRectangle(cornerRadius: tempCornerRadius / 2)
+                                .fill(Color.accentColor.opacity(0.2))
+                            )
+                        Spacer()
+                    }
+                    .padding(.top, 4)
+                }
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 8)
@@ -321,6 +351,7 @@ struct BackgroundPicker: View {
         viewModel.perspective3DDirection = tempPerspective3DDirection
         viewModel.aspectRatio = tempAspectRatio
         viewModel.imagePadding = tempImagePadding
+        viewModel.cornerRadius = tempCornerRadius
         
         // Apply the background change
         viewModel.applyBackground()
