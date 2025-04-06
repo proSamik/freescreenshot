@@ -139,7 +139,7 @@ struct BackgroundPicker: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .frame(minHeight: 100)
+                .frame(minHeight: 30)
                 
                 Divider()
                     .padding(.horizontal, 16)
