@@ -16,7 +16,7 @@ import ServiceManagement
  */
 @main
 struct FreeScreenshotApp: App {
-    @StateObject private var appState = AppState()
+    @StateObject private var appState = AppState.shared
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     /**
@@ -71,6 +71,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Configure app to launch at login
         setupLoginItem()
+        
+        // Check if app was launched directly (not reactivated)
+        // This could be from Spotlight, Finder, or first launch
+        if NSApp.windows.isEmpty {
+            // Open the launcher window when app is first launched
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.openLauncher()
+            }
+        }
+    }
+    
+    /**
+     * Prevent the app from quitting when all windows are closed
+     */
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        return false
+    }
+    
+    /**
+     * Handle reactivation of the app (when icon is clicked in Dock if visible)
+     */
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            // If no windows visible, open the launcher
+            openLauncher()
+        }
+        return true
     }
     
     /**
@@ -197,21 +224,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
      * Captures a screenshot when triggered from menu or hotkey
      */
     @objc private func takeScreenshot() {
-        if let appState = NSApp.windows.first?.windowController?.contentViewController?.representedObject as? AppState {
-            appState.initiateScreenCapture()
-        } else {
-            // Fallback if we can't access the AppState directly
-            NotificationCenter.default.post(name: Notification.Name("TakeScreenshot"), object: nil)
-        }
+        // Use the singleton AppState
+        AppState.shared.initiateScreenCapture()
     }
     
     /**
      * Open launcher window
      */
     @objc private func openLauncher() {
-        // Create a new window with ContentView
+        // Check if a launcher window is already open
+        for window in NSApplication.shared.windows {
+            if window.title == "FreeScreenshot Launcher" {
+                window.makeKeyAndOrderFront(nil)
+                NSApplication.shared.activate(ignoringOtherApps: true)
+                return
+            }
+        }
+        
+        // Create a new window with ContentView using the shared AppState singleton
         let contentView = ContentView()
-            .environmentObject(AppState()) // Create a new AppState or access existing one
+            .environmentObject(AppState.shared)
         let hostingController = NSHostingController(rootView: contentView)
         
         let window = NSWindow(
@@ -292,6 +324,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
  * Handles screenshot capture process and maintains editor state
  */
 class AppState: ObservableObject {
+    // Shared instance for the application
+    static let shared = AppState()
+    
     @Published var isCapturingScreen = false
     @Published var capturedImage: NSImage?
     @Published var isEditorOpen = false
