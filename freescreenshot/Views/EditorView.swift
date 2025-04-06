@@ -33,17 +33,159 @@ struct EditorView: View {
     @State private var textEditorContent = ""
     @State private var textEditorPosition: CGPoint?
     @State private var isShowingSaveDialog = false
+    @State private var showColorPicker = false
+    @State private var selectedColor: NSColor?
+    @State private var showExportOptions = false
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Toolbar
-            toolbar
-                .padding(.horizontal)
-                .padding(.vertical, 8)
-                .background(Color(NSColor.controlBackgroundColor))
+        ZStack {
+            Color(NSColor.windowBackgroundColor)
+                .ignoresSafeArea()
             
-            // Main editor canvas
-            editorCanvasView
+            if let nsImage = viewModel.image {
+                // Image container
+                VStack {
+                    ZStack {
+                        // Image
+                        Image(nsImage: nsImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .padding(20)
+                            .overlay(boxShadowLayer)
+                            .overlay(glassEffectLayer)
+                            .gesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onChanged { value in
+                                        currentDragPosition = value.location
+                                        
+                                        if isSelectingBoxShadow && boxShadowStart == nil {
+                                            boxShadowStart = value.startLocation
+                                        } else if isSelectingGlassEffect && glassEffectStart == nil {
+                                            glassEffectStart = value.startLocation
+                                        }
+                                    }
+                                    .onEnded { value in
+                                        if isSelectingBoxShadow && boxShadowStart != nil {
+                                            withAnimation {
+                                                isSelectingBoxShadow = false
+                                            }
+                                        } else if isSelectingGlassEffect && glassEffectStart != nil {
+                                            withAnimation {
+                                                isSelectingGlassEffect = false
+                                            }
+                                        }
+                                    }
+                            )
+                            .gesture(
+                                TapGesture()
+                                    .onEnded {
+                                        // Only register tap if we have a valid position
+                                        if let position = currentDragPosition {
+                                            if showColorPicker {
+                                                if let nsImage = viewModel.image {
+                                                    selectedColor = NSColor.blue
+                                                    withAnimation {
+                                                        showColorPicker = false
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                            )
+                        
+                        // Add color selection indicator overlay if color picker is active
+                        if showColorPicker, let position = currentDragPosition {
+                            Circle()
+                                .stroke(Color.white, lineWidth: 2)
+                                .frame(width: 20, height: 20)
+                                .position(position)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    
+                    // Toolbar - Positioned at the bottom with fixed height and improved visibility
+                    HStack(spacing: 16) {
+                        // Color picker button
+                        Button(action: {
+                            withAnimation {
+                                showColorPicker.toggle()
+                                isSelectingBoxShadow = false
+                                isSelectingGlassEffect = false
+                                boxShadowStart = nil
+                                glassEffectStart = nil
+                            }
+                        }) {
+                            Image(systemName: "eyedropper")
+                                .frame(width: 24, height: 24)
+                        }
+                        .buttonStyle(ToolbarButtonStyle(isActive: showColorPicker))
+                        .help("Color Picker")
+                        
+                        // Box shadow button
+                        Button(action: {
+                            withAnimation {
+                                isSelectingBoxShadow.toggle()
+                                isSelectingGlassEffect = false
+                                showColorPicker = false
+                                boxShadowStart = nil
+                                glassEffectStart = nil
+                            }
+                        }) {
+                            Image(systemName: "square.dashed")
+                                .frame(width: 24, height: 24)
+                        }
+                        .buttonStyle(ToolbarButtonStyle(isActive: isSelectingBoxShadow))
+                        .help("Box Shadow Effect")
+                        
+                        // Glass effect button
+                        Button(action: {
+                            withAnimation {
+                                isSelectingGlassEffect.toggle()
+                                isSelectingBoxShadow = false
+                                showColorPicker = false
+                                boxShadowStart = nil
+                                glassEffectStart = nil
+                            }
+                        }) {
+                            Image(systemName: "square.2.stack.3d")
+                                .frame(width: 24, height: 24)
+                        }
+                        .buttonStyle(ToolbarButtonStyle(isActive: isSelectingGlassEffect))
+                        .help("Glass Effect")
+                        
+                        // Selected color display
+                        if let color = selectedColor {
+                            ColorPreview(color: color)
+                                .frame(width: 24, height: 24)
+                        }
+                        
+                        Spacer()
+                        
+                        // Export button
+                        Button(action: {
+                            isShowingSaveDialog = true
+                        }) {
+                            Text("Export")
+                                .frame(height: 24)
+                        }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .help("Export edited image")
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(NSColor.windowBackgroundColor).opacity(0.95))
+                            .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 0)
+                    )
+                    .padding(.horizontal, 40)
+                    .padding(.bottom, 20)
+                }
+            } else {
+                Text("No image loaded")
+                    .font(.title)
+                    .foregroundColor(.secondary)
+            }
         }
         .sheet(isPresented: $isShowingBackgroundPicker) {
             BackgroundPicker(viewModel: viewModel, isPresented: $isShowingBackgroundPicker)
@@ -217,10 +359,11 @@ struct EditorView: View {
                     height: abs(current.y - start.y)
                 )
                 
-                // Draw temporary box shadow
+                // Draw temporary box shadow with improved visuals
                 ZStack {
+                    // Semi-transparent overlay for the shadow effect
                     Rectangle()
-                        .fill(Color.black.opacity(0.5))
+                        .fill(Color.black.opacity(0.3))
                         .mask(
                             Rectangle()
                                 .fill(Color.black)
@@ -231,8 +374,11 @@ struct EditorView: View {
                                         .blendMode(.destinationOut)
                                 )
                         )
+                        .allowsHitTesting(false) // Prevent blocking other elements
                     
+                    // Selection rectangle with white border
                     Rectangle()
+                        .fill(Color.clear)
                         .frame(width: rect.width, height: rect.height)
                         .position(x: rect.midX, y: rect.midY)
                         .overlay(
@@ -241,6 +387,7 @@ struct EditorView: View {
                                 .frame(width: rect.width, height: rect.height)
                         )
                 }
+                .clipped() // Ensure it doesn't overflow the view
             }
         }
     }
@@ -258,13 +405,29 @@ struct EditorView: View {
                     height: abs(current.y - start.y)
                 )
                 
-                // Draw temporary glass effect
-                Rectangle()
-                    .frame(width: rect.width, height: rect.height)
-                    .position(x: rect.midX, y: rect.midY)
-                    .blur(radius: 10)
-                    .background(Color.white.opacity(0.1))
-                    .cornerRadius(8)
+                // Draw temporary glass effect with improved appearance
+                ZStack {
+                    // Glass blur effect
+                    BlurEffectView(material: .hudWindow, blendingMode: .behindWindow)
+                        .frame(width: rect.width, height: rect.height)
+                        .position(x: rect.midX, y: rect.midY)
+                        .overlay(
+                            // White border for glass effect
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.white.opacity(0.6), lineWidth: 1)
+                                .frame(width: rect.width, height: rect.height)
+                        )
+                        .cornerRadius(8)
+                        // Subtle gradient overlay to enhance glass look
+                        .overlay(
+                            LinearGradient(
+                                gradient: Gradient(colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)]),
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                }
+                .clipped() // Prevent overflow
             }
         }
     }
@@ -411,7 +574,7 @@ struct EditorView: View {
                 
                 // Export button
                 Button {
-                    isShowingSaveDialog = true
+                    showExportOptions = true
                 } label: {
                     Text("Export")
                         .fontWeight(.medium)
@@ -691,5 +854,84 @@ struct ImageDocument: FileDocument, @unchecked Sendable {
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
         let data = ImageUtilities.imageToData(image, format: .png) ?? Data()
         return FileWrapper(regularFileWithContents: data)
+    }
+}
+
+// Helper NSViewRepresentable for better blur effect
+struct BlurEffectView: NSViewRepresentable {
+    let material: NSVisualEffectView.Material
+    let blendingMode: NSVisualEffectView.BlendingMode
+    
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let visualEffectView = NSVisualEffectView()
+        visualEffectView.material = material
+        visualEffectView.blendingMode = blendingMode
+        visualEffectView.state = .active
+        return visualEffectView
+    }
+    
+    func updateNSView(_ visualEffectView: NSVisualEffectView, context: Context) {
+        visualEffectView.material = material
+        visualEffectView.blendingMode = blendingMode
+    }
+}
+
+/**
+ * Button style for toolbar buttons
+ */
+struct ToolbarButtonStyle: ButtonStyle {
+    var isActive: Bool
+    
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(8)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isActive ? Color.accentColor.opacity(0.2) : Color.clear)
+                    .stroke(isActive ? Color.accentColor : Color.clear, lineWidth: 1)
+            )
+            .foregroundColor(isActive ? .accentColor : .primary)
+            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+            .animation(.spring(response: 0.2), value: configuration.isPressed)
+    }
+}
+
+/**
+ * Primary button style for main actions
+ */
+struct PrimaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.accentColor)
+            )
+            .foregroundColor(.white)
+            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+            .animation(.spring(response: 0.2), value: configuration.isPressed)
+    }
+}
+
+/**
+ * Color preview component
+ */
+struct ColorPreview: View {
+    let color: NSColor
+    
+    var body: some View {
+        ZStack {
+            // Checkered background to show transparency
+            Rectangle()
+                .fill(Color.gray.opacity(0.2))
+            // Color overlay
+            Rectangle()
+                .fill(Color(color))
+            // Border
+            Rectangle()
+                .stroke(Color.gray, lineWidth: 1)
+        }
+        .cornerRadius(4)
     }
 } 
