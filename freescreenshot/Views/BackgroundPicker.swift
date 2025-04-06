@@ -50,10 +50,10 @@ struct BackgroundPicker: View {
     var body: some View {
         HStack(spacing: 0) {
             // LEFT COLUMN - Controls
-            VStack(spacing: 16) {
+            VStack(spacing: 10) {
                 Text("Background Options")
                     .font(.headline)
-                    .padding(.top, 20)
+                    .padding(.top, 10)
                 
                 // Background type selector
                 Picker("Background Type", selection: $tempBackgroundType) {
@@ -98,7 +98,7 @@ struct BackgroundPicker: View {
                                                     endPoint: .bottomTrailing
                                                 )
                                             )
-                                            .frame(width: 60, height: 40)
+                                            .frame(width: 50, height: 30)
                                             .overlay(
                                                 RoundedRectangle(cornerRadius: 8)
                                                     .stroke(selectedGradientPreset == index ? Color.accentColor : Color.clear, lineWidth: 2)
