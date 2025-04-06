@@ -18,6 +18,7 @@ struct BackgroundPicker: View {
     @State private var tempBackgroundColor: Color
     @State private var tempBackgroundGradient: Gradient
     @State private var tempIs3DEffect: Bool
+    @State private var refreshPreview: Bool = false
     
     // Predefined gradient presets
     private let gradientPresets: [Gradient] = [
@@ -146,6 +147,7 @@ struct BackgroundPicker: View {
                     .frame(height: 200)
                     .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
                     .padding()
+                    .id(refreshPreview)
             }
             
             // Buttons
@@ -205,7 +207,12 @@ struct BackgroundPicker: View {
         viewModel.backgroundColor = tempBackgroundColor
         viewModel.backgroundGradient = tempBackgroundGradient
         viewModel.is3DEffect = tempIs3DEffect
+        
+        // Apply the background change
         viewModel.applyBackground()
+        
+        // Force UI refresh by toggling state
+        refreshPreview.toggle()
     }
     
     /**

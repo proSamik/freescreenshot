@@ -39,10 +39,17 @@ class ImageUtilities {
      * Applies a 3D perspective transform to an image
      */
     static func apply3DEffect(to image: NSImage, intensity: CGFloat = 0.2) -> NSImage? {
+        // Create a larger result image to accommodate the transformed content
         let imageSize = image.size
-        let resultImage = NSImage(size: CGSize(width: imageSize.width * 1.2, height: imageSize.height * 1.2))
+        let padding = CGFloat(50) // Add padding to prevent clipping
+        let resultSize = CGSize(width: imageSize.width + padding*2, height: imageSize.height + padding*2)
+        let resultImage = NSImage(size: resultSize)
         
         resultImage.lockFocus()
+        
+        // Clear the background
+        NSColor.clear.setFill()
+        NSBezierPath.fill(NSRect(origin: .zero, size: resultSize))
         
         // Create shadow
         let shadow = NSShadow()
@@ -51,30 +58,29 @@ class ImageUtilities {
         shadow.shadowBlurRadius = 15
         shadow.set()
         
-        // Apply perspective transform
+        // Center the transform
         let transform = NSAffineTransform()
-        transform.translateX(by: imageSize.width * 0.1, yBy: imageSize.height * 0.1)
+        transform.translateX(by: padding, yBy: padding)
         
-        // Perspective transform (pseudo-3D effect)
+        // Apply slight perspective transform
+        transform.translateX(by: imageSize.width * 0.05, yBy: imageSize.height * 0.05)
         transform.concat()
         
-        // Draw the image with the transform
-        let path = NSBezierPath(rect: CGRect(origin: .zero, size: imageSize))
+        // Draw the image with perspective effect
+        let path = NSBezierPath()
         
-        // Create perspective effect by adjusting corners
-        path.removeAllPoints()
-        
-        // Top-left, slightly moved
+        // Define the perspective corners with less extreme values
+        // Top-left
         path.move(to: NSPoint(x: 0, y: imageSize.height))
         
-        // Top-right, moved further in (perspective)
-        path.line(to: NSPoint(x: imageSize.width, y: imageSize.height - imageSize.height * intensity * 0.5))
+        // Top-right
+        path.line(to: NSPoint(x: imageSize.width, y: imageSize.height - imageSize.height * intensity * 0.3))
         
-        // Bottom-right, moved further in (perspective)
-        path.line(to: NSPoint(x: imageSize.width - imageSize.width * intensity * 0.2, y: 0))
+        // Bottom-right
+        path.line(to: NSPoint(x: imageSize.width, y: 0))
         
         // Bottom-left
-        path.line(to: NSPoint(x: imageSize.width * intensity * 0.2, y: imageSize.height * intensity * 0.2))
+        path.line(to: NSPoint(x: 0, y: 0))
         
         path.close()
         

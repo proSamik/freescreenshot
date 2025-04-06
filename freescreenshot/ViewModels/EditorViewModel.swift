@@ -80,9 +80,13 @@ class EditorViewModel: ObservableObject {
         let imageSize = originalImage.size
         let backgroundRect = CGRect(origin: .zero, size: imageSize)
         
+        // Create a new image to draw on
         let resultImage = NSImage(size: imageSize)
-        
         resultImage.lockFocus()
+        
+        // Clear the canvas first
+        NSColor.clear.setFill()
+        NSBezierPath.fill(backgroundRect)
         
         // Draw background based on selected type
         switch backgroundType {
@@ -134,26 +138,30 @@ class EditorViewModel: ObservableObject {
             NSBezierPath.fill(backgroundRect)
         }
         
-        // Apply 3D effect if enabled
+        // CRITICAL: Apply the 3D effect BEFORE drawing the image content if needed
         if is3DEffect {
-            // Draw with perspective transform
-            let perspectiveTransform = NSAffineTransform()
-            perspectiveTransform.translateX(by: imageSize.width * 0.1, yBy: imageSize.height * 0.1)
-            perspectiveTransform.scale(by: 0.9)
-            perspectiveTransform.rotate(byDegrees: -10)
-            perspectiveTransform.concat()
+            // Complete the background drawing
+            resultImage.unlockFocus()
             
-            // Add shadow
-            let shadow = NSShadow()
-            shadow.shadowColor = NSColor.black.withAlphaComponent(0.5)
-            shadow.shadowOffset = NSSize(width: 10, height: 10)
-            shadow.shadowBlurRadius = 15
-            shadow.set()
+            // Convert the current result to a new 3D image
+            guard let perspectiveImage = ImageUtilities.apply3DEffect(to: resultImage, intensity: 0.2) else {
+                // If 3D effect fails, draw original image on background
+                resultImage.lockFocus()
+                originalImage.draw(in: backgroundRect, from: .zero, operation: .sourceOver, fraction: 1.0)
+                resultImage.unlockFocus()
+                self.image = resultImage
+                objectWillChange.send()
+                return
+            }
+            
+            // Use the 3D transformed image as our result
+            self.image = perspectiveImage
+            objectWillChange.send()
+            return
         }
         
-        // Draw the original image on top with proper transparency
+        // For non-3D effect, just draw the original image on top of the background
         originalImage.draw(in: backgroundRect, from: .zero, operation: .sourceOver, fraction: 1.0)
-        
         resultImage.unlockFocus()
         
         // Update the main image and force a UI update
