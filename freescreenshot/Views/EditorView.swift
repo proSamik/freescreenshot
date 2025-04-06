@@ -37,155 +37,29 @@ struct EditorView: View {
     @State private var selectedColor: NSColor?
     @State private var showExportOptions = false
     
+    // Current API compatibility issues with fill(_:style:)
+    private let fillClear = Color.clear
+    private let fillBlack = Color.black
+    private let fillWhite = Color.white
+    
     var body: some View {
-        ZStack {
-            Color(NSColor.windowBackgroundColor)
-                .ignoresSafeArea()
-            
-            if let nsImage = viewModel.image {
-                // Image container
-                VStack {
-                    ZStack {
-                        // Image
-                        Image(nsImage: nsImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .padding(20)
-                            .overlay(boxShadowLayer)
-                            .overlay(glassEffectLayer)
-                            .gesture(
-                                DragGesture(minimumDistance: 0)
-                                    .onChanged { value in
-                                        currentDragPosition = value.location
-                                        
-                                        if isSelectingBoxShadow && boxShadowStart == nil {
-                                            boxShadowStart = value.startLocation
-                                        } else if isSelectingGlassEffect && glassEffectStart == nil {
-                                            glassEffectStart = value.startLocation
-                                        }
-                                    }
-                                    .onEnded { value in
-                                        if isSelectingBoxShadow && boxShadowStart != nil {
-                                            withAnimation {
-                                                isSelectingBoxShadow = false
-                                            }
-                                        } else if isSelectingGlassEffect && glassEffectStart != nil {
-                                            withAnimation {
-                                                isSelectingGlassEffect = false
-                                            }
-                                        }
-                                    }
-                            )
-                            .gesture(
-                                TapGesture()
-                                    .onEnded {
-                                        // Only register tap if we have a valid position
-                                        if let position = currentDragPosition {
-                                            if showColorPicker {
-                                                if let nsImage = viewModel.image {
-                                                    selectedColor = NSColor.blue
-                                                    withAnimation {
-                                                        showColorPicker = false
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                            )
-                        
-                        // Add color selection indicator overlay if color picker is active
-                        if showColorPicker, let position = currentDragPosition {
-                            Circle()
-                                .stroke(Color.white, lineWidth: 2)
-                                .frame(width: 20, height: 20)
-                                .position(position)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    
-                    // Toolbar - Positioned at the bottom with fixed height and improved visibility
-                    HStack(spacing: 16) {
-                        // Color picker button
-                        Button(action: {
-                            withAnimation {
-                                showColorPicker.toggle()
-                                isSelectingBoxShadow = false
-                                isSelectingGlassEffect = false
-                                boxShadowStart = nil
-                                glassEffectStart = nil
-                            }
-                        }) {
-                            Image(systemName: "eyedropper")
-                                .frame(width: 24, height: 24)
-                        }
-                        .buttonStyle(ToolbarButtonStyle(isActive: showColorPicker))
-                        .help("Color Picker")
-                        
-                        // Box shadow button
-                        Button(action: {
-                            withAnimation {
-                                isSelectingBoxShadow.toggle()
-                                isSelectingGlassEffect = false
-                                showColorPicker = false
-                                boxShadowStart = nil
-                                glassEffectStart = nil
-                            }
-                        }) {
-                            Image(systemName: "square.dashed")
-                                .frame(width: 24, height: 24)
-                        }
-                        .buttonStyle(ToolbarButtonStyle(isActive: isSelectingBoxShadow))
-                        .help("Box Shadow Effect")
-                        
-                        // Glass effect button
-                        Button(action: {
-                            withAnimation {
-                                isSelectingGlassEffect.toggle()
-                                isSelectingBoxShadow = false
-                                showColorPicker = false
-                                boxShadowStart = nil
-                                glassEffectStart = nil
-                            }
-                        }) {
-                            Image(systemName: "square.2.stack.3d")
-                                .frame(width: 24, height: 24)
-                        }
-                        .buttonStyle(ToolbarButtonStyle(isActive: isSelectingGlassEffect))
-                        .help("Glass Effect")
-                        
-                        // Selected color display
-                        if let color = selectedColor {
-                            ColorPreview(color: color)
-                                .frame(width: 24, height: 24)
-                        }
-                        
-                        Spacer()
-                        
-                        // Export button
-                        Button(action: {
-                            isShowingSaveDialog = true
-                        }) {
-                            Text("Export")
-                                .frame(height: 24)
-                        }
-                        .buttonStyle(PrimaryButtonStyle())
-                        .help("Export edited image")
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(NSColor.windowBackgroundColor).opacity(0.95))
-                            .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 0)
-                    )
-                    .padding(.horizontal, 40)
-                    .padding(.bottom, 20)
-                }
-            } else {
-                Text("No image loaded")
-                    .font(.title)
-                    .foregroundColor(.secondary)
+        VStack(spacing: 0) {
+            // Toolbar
+            ScrollView(.horizontal, showsIndicators: false) {
+                toolbar
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
             }
+            .background(Color(NSColor.controlBackgroundColor))
+            .frame(height: 80) // Fix height to ensure toolbar visibility
+            
+            // Main editor canvas
+            ScrollView([.horizontal, .vertical], showsIndicators: true) {
+                editorCanvasView
+                    .frame(minWidth: 600, minHeight: 400)
+                    .padding()
+            }
+            .background(Color(NSColor.windowBackgroundColor))
         }
         .sheet(isPresented: $isShowingBackgroundPicker) {
             BackgroundPicker(viewModel: viewModel, isPresented: $isShowingBackgroundPicker)
@@ -244,8 +118,8 @@ struct EditorView: View {
             TapGesture()
                 .onEnded {
                     // If we've tapped without a valid currentDragPosition, we can't use this approach
-                    if let currentLocation = currentDragPosition {
-                        handleCanvasTap(at: currentLocation)
+                    if currentDragPosition != nil {
+                        handleCanvasTap(at: currentDragPosition!)
                     }
                 }
         )
@@ -363,10 +237,10 @@ struct EditorView: View {
                 ZStack {
                     // Semi-transparent overlay for the shadow effect
                     Rectangle()
-                        .fill(Color.black.opacity(0.3))
+                        .foregroundColor(Color.black.opacity(0.3))
                         .mask(
                             Rectangle()
-                                .fill(Color.black)
+                                .foregroundColor(.black)
                                 .overlay(
                                     Rectangle()
                                         .frame(width: rect.width, height: rect.height)
@@ -378,14 +252,9 @@ struct EditorView: View {
                     
                     // Selection rectangle with white border
                     Rectangle()
-                        .fill(Color.clear)
+                        .stroke(Color.white, lineWidth: 2)
                         .frame(width: rect.width, height: rect.height)
                         .position(x: rect.midX, y: rect.midY)
-                        .overlay(
-                            Rectangle()
-                                .stroke(Color.white, lineWidth: 2)
-                                .frame(width: rect.width, height: rect.height)
-                        )
                 }
                 .clipped() // Ensure it doesn't overflow the view
             }
@@ -414,14 +283,17 @@ struct EditorView: View {
                         .overlay(
                             // White border for glass effect
                             RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.white.opacity(0.6), lineWidth: 1)
+                                .stroke(Color.white.opacity(0.7), lineWidth: 1.5)
                                 .frame(width: rect.width, height: rect.height)
                         )
                         .cornerRadius(8)
-                        // Subtle gradient overlay to enhance glass look
+                        // Add simple gradient overlay that works in macOS 12
                         .overlay(
                             LinearGradient(
-                                gradient: Gradient(colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)]),
+                                gradient: Gradient(colors: [
+                                    Color.white.opacity(0.15), 
+                                    Color.white.opacity(0.05)
+                                ]),
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
@@ -456,155 +328,137 @@ struct EditorView: View {
      * The toolbar view with editing tools
      */
     private var toolbar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 16) {
-                // Background button
-                ToolbarButton(
-                    title: "Background",
-                    icon: "photo.fill",
-                    isSelected: isShowingBackgroundPicker
-                ) {
-                    isShowingBackgroundPicker = true
-                }
-                
-                // Device mockup button
-                ToolbarButton(
-                    title: "Device",
-                    icon: "macbook",
-                    isSelected: isShowingDeviceMockup
-                ) {
-                    isShowingDeviceMockup = true
-                }
-                
-                Divider()
-                    .frame(height: 30)
-                
-                // Text tool
-                ToolbarButton(
-                    title: "Text",
-                    icon: "textformat",
-                    isSelected: viewModel.currentTool == .text
-                ) {
-                    viewModel.currentTool = .text
-                    resetAllDrawingStates()
-                }
-                
-                // Arrow tool with style picker
-                Menu {
-                    ForEach(ArrowStyle.allCases) { style in
-                        Button(style.rawValue.capitalized) {
-                            viewModel.arrowStyle = style
-                            viewModel.currentTool = .arrow
-                            resetAllDrawingStates()
-                        }
-                    }
-                } label: {
-                    ToolbarButton(
-                        title: "Arrow",
-                        icon: "arrow.up.right",
-                        isSelected: viewModel.currentTool == .arrow
-                    ) {
+        HStack(spacing: 16) {
+            // Background button
+            ToolbarButton(
+                title: "Background",
+                icon: "photo.fill",
+                isSelected: isShowingBackgroundPicker
+            ) {
+                isShowingBackgroundPicker = true
+                resetAllDrawingStates()
+            }
+            
+            // Device mockup button
+            ToolbarButton(
+                title: "Device",
+                icon: "macbook",
+                isSelected: isShowingDeviceMockup
+            ) {
+                isShowingDeviceMockup = true
+                resetAllDrawingStates()
+            }
+            
+            Divider()
+                .frame(height: 30)
+            
+            // Text tool
+            ToolbarButton(
+                title: "Text",
+                icon: "textformat",
+                isSelected: viewModel.currentTool == .text
+            ) {
+                viewModel.currentTool = .text
+                resetAllDrawingStates()
+            }
+            
+            // Arrow tool with style picker
+            Menu {
+                ForEach(ArrowStyle.allCases) { style in
+                    Button(style.rawValue.capitalized) {
+                        viewModel.arrowStyle = style
                         viewModel.currentTool = .arrow
                         resetAllDrawingStates()
                     }
                 }
-                
-                // Highlighter tool
+            } label: {
                 ToolbarButton(
-                    title: "Highlight",
-                    icon: "highlighter",
-                    isSelected: viewModel.currentTool == .highlighter
+                    title: "Arrow",
+                    icon: "arrow.up.right",
+                    isSelected: viewModel.currentTool == .arrow
                 ) {
-                    viewModel.currentTool = .highlighter
+                    viewModel.currentTool = .arrow
                     resetAllDrawingStates()
-                }
-                
-                // Box shadow tool
-                ToolbarButton(
-                    title: "Box Shadow",
-                    icon: "rectangle.fill",
-                    isSelected: viewModel.currentTool == .boxShadow
-                ) {
-                    viewModel.currentTool = .boxShadow
-                    resetAllDrawingStates()
-                }
-                
-                // Glass effect tool
-                ToolbarButton(
-                    title: "Glass",
-                    icon: "circle.dotted",
-                    isSelected: viewModel.currentTool == .glassEffect
-                ) {
-                    viewModel.currentTool = .glassEffect
-                    resetAllDrawingStates()
-                }
-                
-                Divider()
-                    .frame(height: 30)
-                
-                // Color picker
-                ColorPicker("", selection: $viewModel.textColor)
-                    .labelsHidden()
-                    .frame(width: 30, height: 30)
-                
-                // Line width picker
-                Menu {
-                    Button("Thin") { viewModel.lineWidth = 1 }
-                    Button("Medium") { viewModel.lineWidth = 2 }
-                    Button("Thick") { viewModel.lineWidth = 4 }
-                } label: {
-                    Image(systemName: "line.3.horizontal")
-                        .font(.title3)
-                        .frame(width: 30, height: 30)
-                }
-                
-                Divider()
-                    .frame(height: 30)
-                
-                // Remove selected element
-                Button {
-                    viewModel.removeSelectedElement()
-                } label: {
-                    Image(systemName: "trash")
-                        .font(.title3)
-                        .frame(width: 30, height: 30)
-                }
-                
-                Spacer()
-                
-                // Export button
-                Button {
-                    showExportOptions = true
-                } label: {
-                    Text("Export")
-                        .fontWeight(.medium)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Color.accentColor)
-                        .foregroundColor(.white)
-                        .cornerRadius(6)
                 }
             }
-            .padding(.horizontal)
-        }
-    }
-    
-    /**
-     * Handles taps on the canvas
-     */
-    private func handleCanvasTap(at location: CGPoint) {
-        switch viewModel.currentTool {
-        case .select:
-            // Deselect all if tapping empty area
-            viewModel.selectedElementId = nil
             
-        case .text:
-            isTextEditorActive = true
-            textEditorPosition = location
+            // Highlighter tool
+            ToolbarButton(
+                title: "Highlight",
+                icon: "highlighter",
+                isSelected: viewModel.currentTool == .highlighter
+            ) {
+                viewModel.currentTool = .highlighter
+                resetAllDrawingStates()
+            }
             
-        default:
-            break
+            // Box shadow tool
+            ToolbarButton(
+                title: "Box Shadow",
+                icon: "rectangle.fill",
+                isSelected: viewModel.currentTool == .boxShadow
+            ) {
+                viewModel.currentTool = .boxShadow
+                resetAllDrawingStates()
+            }
+            
+            // Glass effect tool
+            ToolbarButton(
+                title: "Glass",
+                icon: "circle.dotted",
+                isSelected: viewModel.currentTool == .glassEffect
+            ) {
+                viewModel.currentTool = .glassEffect
+                resetAllDrawingStates()
+            }
+            
+            Divider()
+                .frame(height: 30)
+            
+            // Color picker
+            ColorPicker("", selection: $viewModel.textColor)
+                .labelsHidden()
+                .frame(width: 30, height: 30)
+            
+            // Line width picker
+            Menu {
+                Button("Thin") { viewModel.lineWidth = 1 }
+                Button("Medium") { viewModel.lineWidth = 2 }
+                Button("Thick") { viewModel.lineWidth = 4 }
+            } label: {
+                Image(systemName: "line.3.horizontal")
+                    .font(.title3)
+                    .frame(width: 30, height: 30)
+            }
+            
+            Divider()
+                .frame(height: 30)
+            
+            // Remove selected element
+            Button {
+                viewModel.removeSelectedElement()
+            } label: {
+                Image(systemName: "trash")
+                    .font(.title3)
+                    .frame(width: 30, height: 30)
+            }
+            
+            Spacer()
+            
+            // Export button
+            Button {
+                isShowingSaveDialog = true
+            } label: {
+                Text("Export")
+                    .fontWeight(.medium)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color.accentColor)
+                    .foregroundColor(.white)
+                    .cornerRadius(6)
+            }
         }
+        .padding(.horizontal)
     }
     
     /**
@@ -624,10 +478,53 @@ struct EditorView: View {
             handleHighlighterDrag(state: state, location: location)
             
         case .boxShadow:
+            // Activate box shadow selection mode if not already active
+            if !isSelectingBoxShadow && state == .changed {
+                isSelectingBoxShadow = true
+            }
             handleBoxShadowDrag(state: state, location: location)
             
         case .glassEffect:
+            // Activate glass effect selection mode if not already active
+            if !isSelectingGlassEffect && state == .changed {
+                isSelectingGlassEffect = true
+            }
             handleGlassEffectDrag(state: state, location: location)
+            
+        case .text:
+            // Handle text tool if needed
+            if state == .ended {
+                isTextEditorActive = true
+                textEditorPosition = location
+            }
+            
+        default:
+            break
+        }
+    }
+    
+    /**
+     * Handles taps on the canvas
+     */
+    private func handleCanvasTap(at location: CGPoint) {
+        switch viewModel.currentTool {
+        case .select:
+            // Deselect all if tapping empty area
+            viewModel.selectedElementId = nil
+            
+        case .text:
+            isTextEditorActive = true
+            textEditorPosition = location
+            
+        case .boxShadow:
+            // Start box shadow creation on tap
+            isSelectingBoxShadow = true
+            boxShadowStart = location
+            
+        case .glassEffect:
+            // Start glass effect creation on tap
+            isSelectingGlassEffect = true
+            glassEffectStart = location
             
         default:
             break
@@ -711,6 +608,8 @@ struct EditorView: View {
                 viewModel.addBoxShadow(rect: rect)
                 isSelectingBoxShadow = false
                 boxShadowStart = nil
+                // Set the current tool to select mode after creating a box shadow
+                viewModel.currentTool = .select
             }
         }
     }
@@ -736,7 +635,27 @@ struct EditorView: View {
                 viewModel.addGlassEffect(rect: rect)
                 isSelectingGlassEffect = false
                 glassEffectStart = nil
+                // Set the current tool to select mode after creating a glass effect
+                viewModel.currentTool = .select
             }
+        }
+    }
+    
+    /**
+     * Updates the view state when the tool selection changes
+     */
+    private func updateToolState() {
+        // Reset all states when the tool changes
+        resetAllDrawingStates()
+        
+        // Activate appropriate states based on the selected tool
+        switch viewModel.currentTool {
+        case .boxShadow:
+            isSelectingBoxShadow = true
+        case .glassEffect:
+            isSelectingGlassEffect = true
+        default:
+            break
         }
     }
     
@@ -755,7 +674,7 @@ struct EditorView: View {
         isTextEditorActive = false
         textEditorContent = ""
         textEditorPosition = nil
-        currentDragPosition = nil
+        showColorPicker = false
     }
 }
 
@@ -877,6 +796,28 @@ struct BlurEffectView: NSViewRepresentable {
 }
 
 /**
+ * Color preview component
+ */
+struct ColorPreview: View {
+    let color: NSColor
+    
+    var body: some View {
+        ZStack {
+            // Checkered background to show transparency
+            Rectangle()
+                .foregroundColor(Color.gray.opacity(0.2))
+            // Color overlay
+            Rectangle()
+                .foregroundColor(Color(color))
+            // Border
+            Rectangle()
+                .stroke(Color.gray, lineWidth: 1)
+        }
+        .cornerRadius(4)
+    }
+}
+
+/**
  * Button style for toolbar buttons
  */
 struct ToolbarButtonStyle: ButtonStyle {
@@ -886,13 +827,20 @@ struct ToolbarButtonStyle: ButtonStyle {
         configuration.label
             .padding(8)
             .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isActive ? Color.accentColor.opacity(0.2) : Color.clear)
-                    .stroke(isActive ? Color.accentColor : Color.clear, lineWidth: 1)
+                ZStack {
+                    // Background fill
+                    RoundedRectangle(cornerRadius: 8)
+                        .foregroundColor(isActive ? Color.accentColor.opacity(0.2) : Color.clear)
+                    
+                    // Border
+                    if isActive {
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.accentColor, lineWidth: 1)
+                    }
+                }
             )
             .foregroundColor(isActive ? .accentColor : .primary)
             .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
-            .animation(.spring(response: 0.2), value: configuration.isPressed)
     }
 }
 
@@ -911,27 +859,5 @@ struct PrimaryButtonStyle: ButtonStyle {
             .foregroundColor(.white)
             .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
             .animation(.spring(response: 0.2), value: configuration.isPressed)
-    }
-}
-
-/**
- * Color preview component
- */
-struct ColorPreview: View {
-    let color: NSColor
-    
-    var body: some View {
-        ZStack {
-            // Checkered background to show transparency
-            Rectangle()
-                .fill(Color.gray.opacity(0.2))
-            // Color overlay
-            Rectangle()
-                .fill(Color(color))
-            // Border
-            Rectangle()
-                .stroke(Color.gray, lineWidth: 1)
-        }
-        .cornerRadius(4)
     }
 } 
