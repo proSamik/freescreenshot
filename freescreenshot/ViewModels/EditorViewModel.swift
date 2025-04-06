@@ -287,7 +287,7 @@ class EditorViewModel: ObservableObject {
     func exportImage() -> NSImage? {
         guard let image = image else { return nil }
         
-        // If no 3D effect is selected, just return the current image with elements
+        // For non-3D effects, we can just return the current image
         if !is3DEffect {
             let imageSize = image.size
             let exportImage = NSImage(size: imageSize)
@@ -329,47 +329,45 @@ class EditorViewModel: ObservableObject {
             return exportImage
         }
         
-        // For 3D effect, we need to create the final image with perspective
+        // For 3D effect, create a larger canvas to handle the transformation
         let imageSize = image.size
-        let exportSize = CGSize(width: imageSize.width * 1.5, height: imageSize.height * 1.5) // More padding for stronger 3D
+        let exportSize = CGSize(width: imageSize.width * 1.5, height: imageSize.height * 1.5)
         let exportImage = NSImage(size: exportSize)
         
         exportImage.lockFocus()
         
-        // Clear background
+        // Clear background with transparency
         NSColor.clear.set()
         NSRect(origin: .zero, size: exportSize).fill()
         
-        // Get perspective transform parameters based on selected direction
+        // Get perspective transform parameters for the current direction
         let transform = getPerspectiveTransform(for: perspective3DDirection, size: imageSize)
         
-        // Apply transform
+        // Center the image on the larger canvas
         let translateX = (exportSize.width - imageSize.width) / 2
         let translateY = (exportSize.height - imageSize.height) / 2
         
         NSGraphicsContext.current?.saveGraphicsState()
         
-        // Create a transform that centers the image and applies perspective
+        // Center the image first
         let affineTransform = NSAffineTransform()
         affineTransform.translateX(by: translateX, yBy: translateY)
-        
-        // Apply the transform to the graphics context
         affineTransform.concat()
         
-        // Create shadow for 3D effect
+        // Apply shadow for 3D effect
         let shadow = NSShadow()
         shadow.shadowColor = NSColor.black.withAlphaComponent(0.5)
         shadow.shadowOffset = NSSize(width: transform.shadowOffsetX, height: transform.shadowOffsetY)
-        shadow.shadowBlurRadius = 20 // Increased blur radius
+        shadow.shadowBlurRadius = 20
         shadow.set()
         
-        // Set up 3D transform using Core Graphics
+        // Apply 3D transform using Core Graphics
         if let context = NSGraphicsContext.current?.cgContext {
-            // Apply 3D transform
+            // Create a 3D transform with perspective
             var transform3D = CATransform3DIdentity
-            transform3D.m34 = -1.0 / 300.0 // Increased perspective depth (was 500)
+            transform3D.m34 = -1.0 / 300.0  // Perspective depth
             
-            // Apply rotation based on direction
+            // Apply rotation based on selected direction
             transform3D = CATransform3DRotate(
                 transform3D,
                 transform.rotationX,
@@ -384,13 +382,13 @@ class EditorViewModel: ObservableObject {
             // Apply slight scale to enhance the perspective effect
             transform3D = CATransform3DScale(transform3D, 1.1, 1.1, 1.0)
             
-            // Apply CATransform3D to CGContext
+            // Apply the 3D transform to the Core Graphics context
             context.concatenate(CATransform3DGetAffineTransform(transform3D))
             
-            // Now draw the image with the 3D transform
+            // Draw the image with the 3D transform applied
             image.draw(in: CGRect(origin: .zero, size: imageSize))
             
-            // Draw all elements on top
+            // Draw any additional elements on top
             for element in elements {
                 if let textElement = element as? TextElement {
                     let attributedString = NSAttributedString(
@@ -425,7 +423,7 @@ class EditorViewModel: ObservableObject {
         
         exportImage.unlockFocus()
         
-        // Trim any excess transparent padding
+        // Trim excess transparent areas
         return trimTransparentPadding(exportImage)
     }
     

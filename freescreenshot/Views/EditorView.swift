@@ -151,11 +151,37 @@ struct EditorView: View {
         Group {
             if let image = viewModel.image {
                 GeometryReader { geo in
-                    Image(nsImage: image)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: geo.size.width, maxHeight: geo.size.height)
-                        .id(image.hashValue) // Force refresh when image changes
+                    // Add container for proper 3D effect rendering
+                    ZStack {
+                        // Static background that doesn't rotate (if using 3D effect)
+                        if viewModel.is3DEffect {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(NSColor.windowBackgroundColor).opacity(0.5))
+                                .frame(
+                                    width: min(geo.size.width * 0.9, geo.size.height * 0.9),
+                                    height: min(geo.size.width * 0.9, geo.size.height * 0.9)
+                                )
+                        }
+                        
+                        // Image with 3D effect applied if enabled
+                        Image(nsImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(
+                                width: min(geo.size.width * 0.85, geo.size.height * 0.85),
+                                height: min(geo.size.width * 0.85, geo.size.height * 0.85)
+                            )
+                            // Apply 3D rotation effect if enabled
+                            .rotation3DEffect(
+                                viewModel.is3DEffect ? get3DRotationAngle() : .zero,
+                                axis: viewModel.is3DEffect ? get3DRotationAxis() : (x: 0, y: 0, z: 1),
+                                anchor: get3DRotationAnchor(),
+                                perspective: viewModel.is3DEffect ? 0.2 : 0
+                            )
+                            .shadow(color: Color.black.opacity(0.3), radius: 15, x: 0, y: 5)
+                            .id(image.hashValue) // Force refresh when image changes
+                    }
+                    .frame(maxWidth: geo.size.width, maxHeight: geo.size.height)
                 }
                 .frame(maxWidth: .infinity)
                 .frame(maxHeight: .infinity)
@@ -171,11 +197,64 @@ struct EditorView: View {
     }
     
     /**
+     * Returns the 3D rotation angle based on selected direction
+     */
+    private func get3DRotationAngle() -> Angle {
+        switch viewModel.perspective3DDirection {
+        case .topLeft, .top, .topRight:
+            return .degrees(15)
+        case .bottomLeft, .bottom, .bottomRight:
+            return .degrees(-15)
+        }
+    }
+    
+    /**
+     * Returns the 3D rotation axis based on selected direction
+     */
+    private func get3DRotationAxis() -> (x: CGFloat, y: CGFloat, z: CGFloat) {
+        switch viewModel.perspective3DDirection {
+        case .topLeft:
+            return (x: 1, y: 1, z: 0)
+        case .top:
+            return (x: 1, y: 0, z: 0)
+        case .topRight:
+            return (x: 1, y: -1, z: 0)
+        case .bottomLeft:
+            return (x: -1, y: 1, z: 0)
+        case .bottom:
+            return (x: -1, y: 0, z: 0)
+        case .bottomRight:
+            return (x: -1, y: -1, z: 0)
+        }
+    }
+    
+    /**
+     * Returns the anchor point for rotation based on direction
+     */
+    private func get3DRotationAnchor() -> UnitPoint {
+        switch viewModel.perspective3DDirection {
+        case .topLeft:
+            return .topLeading
+        case .top:
+            return .top
+        case .topRight:
+            return .topTrailing
+        case .bottomLeft:
+            return .bottomLeading
+        case .bottom:
+            return .bottom
+        case .bottomRight:
+            return .bottomTrailing
+        }
+    }
+    
+    /**
      * Exports the screenshot using NSSavePanel instead of fileExporter
      * This prevents the app from quitting after export
      */
     private func exportImage() {
-        guard let image = viewModel.image else { return }
+        // Use the viewModel's exportImage method which handles 3D effects properly
+        guard let exportedImage = viewModel.exportImage() else { return }
         
         let savePanel = NSSavePanel()
         savePanel.allowedContentTypes = [.png]
@@ -190,7 +269,7 @@ struct EditorView: View {
             if response == .OK {
                 if let url = savePanel.url {
                     // Convert NSImage to PNG data
-                    if let pngData = image.tiffRepresentation,
+                    if let pngData = exportedImage.tiffRepresentation,
                        let bitmap = NSBitmapImageRep(data: pngData),
                        let data = bitmap.representation(using: .png, properties: [:]) {
                         do {
