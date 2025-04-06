@@ -57,7 +57,7 @@ struct EditorView: View {
         }
         .fileExporter(
             isPresented: $isShowingSaveDialog,
-            document: ImageDocument(image: viewModel.exportImage() ?? NSImage()),
+            document: ImageDocument(image: viewModel.image ?? NSImage()),
             contentType: .png,
             defaultFilename: "screenshot"
         ) { result in
@@ -115,6 +115,7 @@ struct EditorView: View {
                     .scaledToFit()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding()
+                    .id(image.hashValue) // Force refresh when image changes
             }
         }
     }
@@ -156,6 +157,7 @@ struct EditorView: View {
             
             // Export button
             Button {
+                // Make sure we export the current state of the image
                 isShowingSaveDialog = true
             } label: {
                 Text("Export")

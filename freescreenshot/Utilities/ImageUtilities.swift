@@ -40,6 +40,53 @@ class ImageUtilities {
      * Returns a new image with the mockup frame
      */
     static func createDeviceMockup(for image: NSImage, deviceType: DeviceType) -> NSImage? {
+        // Get the mockup image from assets
+        let mockupImage: NSImage?
+        
+        switch deviceType {
+        case .macbook:
+            mockupImage = NSImage(named: "mockup_macbook")
+        case .iphone:
+            mockupImage = NSImage(named: "mockup_iphone")
+        case .ipad:
+            mockupImage = NSImage(named: "mockup_ipad")
+        }
+        
+        guard let deviceMockup = mockupImage else {
+            // Fallback to drawing a basic mockup
+            return createBasicDeviceMockup(for: image, deviceType: deviceType)
+        }
+        
+        // Get the content rect for the device
+        let mockupSize = deviceMockup.size
+        let contentFrame = deviceType.getContentRect(mockupSize: mockupSize)
+        
+        // Create a result image with the mockup size
+        let resultImage = NSImage(size: mockupSize)
+        
+        resultImage.lockFocus()
+        
+        // Draw the device mockup frame
+        deviceMockup.draw(in: CGRect(origin: .zero, size: mockupSize))
+        
+        // Scale and position the screenshot inside the device frame
+        let imageSize = image.size
+        let scale = min(contentFrame.width / imageSize.width, contentFrame.height / imageSize.height)
+        let scaledSize = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
+        
+        let xOffset = contentFrame.origin.x + (contentFrame.width - scaledSize.width) / 2
+        let yOffset = contentFrame.origin.y + (contentFrame.height - scaledSize.height) / 2
+        
+        image.draw(in: CGRect(origin: CGPoint(x: xOffset, y: yOffset), size: scaledSize))
+        
+        resultImage.unlockFocus()
+        return resultImage
+    }
+    
+    /**
+     * Creates a basic device mockup if the asset image is not available
+     */
+    private static func createBasicDeviceMockup(for image: NSImage, deviceType: DeviceType) -> NSImage? {
         // Create a new image with appropriate size based on device type
         let mockupSize: CGSize
         let backgroundColor: NSColor

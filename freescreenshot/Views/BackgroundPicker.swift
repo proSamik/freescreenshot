@@ -141,6 +141,7 @@ struct BackgroundPicker: View {
                     // Revert to original image
                     if let originalImage = viewModel.originalImage {
                         viewModel.image = originalImage
+                        viewModel.backgroundType = .none
                     }
                     isPresented = false
                 }
@@ -158,6 +159,10 @@ struct BackgroundPicker: View {
             .padding()
         }
         .frame(width: 500, height: 550)
+        .onAppear {
+            // Make sure the background is applied when the picker appears
+            viewModel.applyBackground()
+        }
     }
     
     /**

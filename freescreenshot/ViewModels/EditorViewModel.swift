@@ -78,14 +78,14 @@ class EditorViewModel: ObservableObject {
         case .solid:
             // Draw solid color background
             NSColor(backgroundColor).set()
-            backgroundRect.fill()
+            NSBezierPath.fill(backgroundRect)
             
         case .gradient:
             // Draw gradient background
             if let gradientContext = NSGraphicsContext.current?.cgContext {
                 let colors = backgroundGradient.stops.map { NSColor($0.color).cgColor }
                 let colorSpace = CGColorSpaceCreateDeviceRGB()
-                let positions = backgroundGradient.stops.map { $0.location }
+                let positions = backgroundGradient.stops.map { CGFloat($0.location) }
                 
                 if let gradient = CGGradient(colorsSpace: colorSpace, colors: colors as CFArray, locations: positions) {
                     gradientContext.drawLinearGradient(
@@ -100,13 +100,27 @@ class EditorViewModel: ObservableObject {
         case .image:
             // Draw background image
             if let bgImage = backgroundImage {
-                bgImage.draw(in: backgroundRect, from: .zero, operation: .copy, fraction: 1.0)
+                // Scale background image to fill the area
+                let bgSize = bgImage.size
+                let xScale = imageSize.width / bgSize.width
+                let yScale = imageSize.height / bgSize.height
+                let scale = max(xScale, yScale) // Use max to ensure image fills the area
+                
+                let scaledWidth = bgSize.width * scale
+                let scaledHeight = bgSize.height * scale
+                
+                // Center the background image
+                let xOffset = (imageSize.width - scaledWidth) / 2
+                let yOffset = (imageSize.height - scaledHeight) / 2
+                
+                let destRect = NSRect(x: xOffset, y: yOffset, width: scaledWidth, height: scaledHeight)
+                bgImage.draw(in: destRect, from: .zero, operation: .copy, fraction: 1.0)
             }
             
         case .none:
-            // No background, just clear
-            NSColor.clear.set()
-            backgroundRect.fill()
+            // No background, just fill with white to create a clean slate
+            NSColor.white.set()
+            NSBezierPath.fill(backgroundRect)
         }
         
         // Apply 3D effect if enabled
@@ -126,11 +140,16 @@ class EditorViewModel: ObservableObject {
             shadow.set()
         }
         
-        // Draw the original image on top
+        // Draw the original image on top with proper transparency
         originalImage.draw(in: backgroundRect, from: .zero, operation: .sourceOver, fraction: 1.0)
         
         resultImage.unlockFocus()
+        
+        // Update the main image
         self.image = resultImage
+        
+        // Force a UI update
+        objectWillChange.send()
     }
     
     /**

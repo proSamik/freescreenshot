@@ -72,43 +72,6 @@ struct DeviceMockupView: View {
 }
 
 /**
- * DeviceMockupPicker: A sheet that allows selecting a device mockup
- */
-struct DeviceMockupPicker: View {
-    @Binding var isPresented: Bool
-    let screenshot: NSImage
-    @Binding var outputImage: NSImage?
-    
-    var body: some View {
-        VStack {
-            HStack {
-                Button("Cancel") {
-                    isPresented = false
-                }
-                .keyboardShortcut(.escape)
-                
-                Spacer()
-                
-                Text("Choose Device Mockup")
-                    .font(.headline)
-                
-                Spacer()
-                
-                Button("Done") {
-                    isPresented = false
-                }
-                .keyboardShortcut(.return)
-                .buttonStyle(.borderedProminent)
-            }
-            .padding()
-            
-            DeviceMockupView(screenshot: screenshot, selectedImage: $outputImage)
-        }
-        .frame(width: 500, height: 450)
-    }
-}
-
-/**
  * Preview for device mockups to be shown in asset catalog
  */
 struct DeviceMockupAsset: Identifiable {
