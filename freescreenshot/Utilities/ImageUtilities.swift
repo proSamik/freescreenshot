@@ -63,16 +63,12 @@ class ImageUtilities {
             shadow.shadowOffset = NSSize(width: 0, height: 20)
         case .topRight:
             shadow.shadowOffset = NSSize(width: 20, height: 20)
-        case .left:
-            shadow.shadowOffset = NSSize(width: -20, height: 0)
         case .bottomLeft:
             shadow.shadowOffset = NSSize(width: -20, height: -20)
         case .bottom:
             shadow.shadowOffset = NSSize(width: 0, height: -20)
         case .bottomRight:
             shadow.shadowOffset = NSSize(width: 20, height: -20)
-        case .right:
-            shadow.shadowOffset = NSSize(width: 20, height: 0)
         }
         
         shadow.shadowBlurRadius = 15
@@ -113,9 +109,6 @@ class ImageUtilities {
             transformedTopRight = NSPoint(x: imageSize.width - xOffset, y: imageSize.height)
             transformedBottomRight = NSPoint(x: imageSize.width - xOffset, y: 0)
             transformedTopLeft = NSPoint(x: 0, y: imageSize.height - yOffset)
-        case .left:
-            transformedTopLeft = NSPoint(x: xOffset, y: imageSize.height)
-            transformedBottomLeft = NSPoint(x: xOffset, y: 0)
         case .bottomLeft:
             transformedBottomLeft = NSPoint(x: xOffset, y: 0)
             transformedTopLeft = NSPoint(x: xOffset, y: imageSize.height)
@@ -127,9 +120,6 @@ class ImageUtilities {
             transformedBottomRight = NSPoint(x: imageSize.width - xOffset, y: 0)
             transformedTopRight = NSPoint(x: imageSize.width - xOffset, y: imageSize.height)
             transformedBottomLeft = NSPoint(x: 0, y: yOffset)
-        case .right:
-            transformedTopRight = NSPoint(x: imageSize.width - xOffset, y: imageSize.height)
-            transformedBottomRight = NSPoint(x: imageSize.width - xOffset, y: 0)
         }
         
         // Draw the perspective shape with transformed points

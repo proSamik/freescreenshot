@@ -308,11 +308,9 @@ enum Perspective3DDirection: String, CaseIterable, Identifiable {
     case topLeft
     case top
     case topRight
-    case left
     case bottomLeft
     case bottom
     case bottomRight
-    case right
     
     var id: String { self.rawValue }
     
@@ -321,11 +319,9 @@ enum Perspective3DDirection: String, CaseIterable, Identifiable {
         case .topLeft: return "Top Left"
         case .top: return "Top"
         case .topRight: return "Top Right"
-        case .left: return "Left"
         case .bottomLeft: return "Bottom Left"
         case .bottom: return "Bottom"
         case .bottomRight: return "Bottom Right"
-        case .right: return "Right"
         }
     }
 } 

@@ -295,16 +295,12 @@ struct BackgroundPicker: View {
             return "arrow.up"
         case .topRight:
             return "arrow.up.right"
-        case .left:
-            return "arrow.left"
         case .bottomLeft:
             return "arrow.down.left"
         case .bottom:
             return "arrow.down"
         case .bottomRight:
             return "arrow.down.right"
-        case .right:
-            return "arrow.right"
         }
     }
 } 
