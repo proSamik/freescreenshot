@@ -43,7 +43,8 @@ struct FreeScreenshotApp: App {
  * AppDelegate: Handles application lifecycle events and permissions
  */
 class AppDelegate: NSObject, NSApplicationDelegate {
-    private var statusItem: NSStatusItem?
+    // Use a strong property for the status item so it can't be deallocated
+    private(set) var statusItem: NSStatusItem! = nil
     private var hotkey: HotKey?
     
     // Keep strong references to windows to prevent them from being deallocated
@@ -121,9 +122,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
      * Sets up the status bar (menu bar) item with icon and menu
      */
     private func setupStatusBarItem() {
+        // Create a status item with fixed length to ensure it's visible
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         
-        if let button = statusItem?.button {
+        if let button = statusItem.button {
+            // Use standard template image that works well in both light and dark mode
             button.image = NSImage(systemSymbolName: "camera.fill", accessibilityDescription: "FreeScreenshot")
             
             // Create the menu
@@ -144,7 +147,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             menu.addItem(NSMenuItem.separator())
             menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
             
-            statusItem?.menu = menu
+            statusItem.menu = menu
         }
     }
     
@@ -393,6 +396,20 @@ class AppState: ObservableObject {
     func initiateScreenCapture() {
         isCapturingScreen = true
         
+        // Ensure the status item remains visible
+        DispatchQueue.main.async {
+            // Make sure we're in accessory mode before starting capture
+            NSApp.setActivationPolicy(.accessory)
+            
+            // Force the status item to refresh by toggling its length
+            if let appDelegate = NSApp.delegate as? AppDelegate, 
+               let statusItem = appDelegate.statusItem {
+                let currentLength = statusItem.length
+                statusItem.length = currentLength + 0.1
+                statusItem.length = currentLength
+            }
+        }
+        
         // Close the main window temporarily if it's open
         if let window = NSApplication.shared.windows.first {
             window.orderOut(nil)
@@ -489,13 +506,25 @@ class WindowDelegate: NSObject, NSWindowDelegate {
         // Don't actually close the window, just hide it
         sender.orderOut(nil)
         
-        // After hiding all windows, ensure app is removed from Dock
-        DispatchQueue.main.async {
-            // Check if all app windows are hidden or closed
-            let visibleWindows = NSApp.windows.filter { $0.isVisible }
+        // Force activation policy to accessory (menu bar only) after a slight delay
+        // This ensures all animations complete and app UI state is updated
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            // Double-check if any windows are still visible
+            let visibleWindows = NSApp.windows.filter { 
+                $0.isVisible && !($0 is NSPanel) && $0.title != "" 
+            }
+            
             if visibleWindows.isEmpty {
                 // If no visible windows, set app back to accessory mode (menu bar only)
                 NSApp.setActivationPolicy(.accessory)
+                
+                // Force hide dock icon by activating another app briefly then coming back
+                if let finder = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == "com.apple.finder" }) {
+                    finder.activate(options: .activateIgnoringOtherApps)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        NSApp.activate(ignoringOtherApps: true)
+                    }
+                }
             }
         }
         
