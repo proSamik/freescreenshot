@@ -17,6 +17,7 @@ let package = Package(
     targets: [
         .target(
             name: "FreeScreenshot",
-            dependencies: ["HotKey"]),
+            dependencies: ["HotKey"],
+            path: "freescreenshot"),
     ]
 ) 
