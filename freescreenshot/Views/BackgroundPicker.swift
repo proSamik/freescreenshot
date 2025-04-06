@@ -313,19 +313,31 @@ struct BackgroundPicker: View {
                 GeometryReader { geo in
                     // Fixed size container for the image preview
                     ZStack {
-                        // Static background that doesn't rotate
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(NSColor.windowBackgroundColor).opacity(0.5))
+                        // Static background that doesn't rotate (if background is applied)
+                        if tempBackgroundType != .none {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(NSColor.windowBackgroundColor).opacity(0.5))
+                                .frame(
+                                    // Increased canvas size to accommodate 3D rotation
+                                    width: min(geo.size.width * 0.95, geo.size.height * 0.95),
+                                    height: min(geo.size.width * 0.95, geo.size.height * 0.95)
+                                )
+                        }
                         
-                        // Image preview with proper 3D transformation
+                        // Image preview with 3D rotation applied only to the image
                         if let image = viewModel.image {
                             // Use SwiftUI's built-in 3D rotation for the preview only
                             Image(nsImage: image)
                                 .resizable()
                                 .aspectRatio(contentMode: .fit)
                                 .frame(
-                                    width: min(geo.size.width * 0.8, geo.size.height * 0.8),
-                                    height: min(geo.size.width * 0.8, geo.size.height * 0.8)
+                                    // Make image smaller to ensure it stays within canvas when rotated
+                                    width: tempIs3DEffect 
+                                        ? min(geo.size.width * 0.7, geo.size.height * 0.7)
+                                        : min(geo.size.width * 0.8, geo.size.height * 0.8),
+                                    height: tempIs3DEffect 
+                                        ? min(geo.size.width * 0.7, geo.size.height * 0.7) 
+                                        : min(geo.size.width * 0.8, geo.size.height * 0.8)
                                 )
                                 // Apply 3D rotation using SwiftUI's built-in effect
                                 .rotation3DEffect(
@@ -334,7 +346,7 @@ struct BackgroundPicker: View {
                                     anchor: getRotationAnchor(),
                                     perspective: tempIs3DEffect ? 0.2 : 0
                                 )
-                                .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
+                                .shadow(color: .black.opacity(0.3), radius: 15, x: 0, y: 5)
                                 .id(refreshPreview)
                         } else {
                             Text("No preview available")
