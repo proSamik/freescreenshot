@@ -114,7 +114,7 @@ struct EditorView: View {
                 
                 // Export button
                 Button {
-                    isShowingSaveDialog = true
+                    exportImage()
                 } label: {
                     Text("Export")
                         .fontWeight(.medium)
@@ -132,19 +132,6 @@ struct EditorView: View {
         .frame(minHeight: 600)
         .sheet(isPresented: $isShowingBackgroundPicker) {
             BackgroundPicker(viewModel: viewModel, isPresented: $isShowingBackgroundPicker)
-        }
-        .fileExporter(
-            isPresented: $isShowingSaveDialog,
-            document: ImageDocument(image: viewModel.image ?? NSImage()),
-            contentType: .png,
-            defaultFilename: "screenshot"
-        ) { result in
-            switch result {
-            case .success(let url):
-                print("Saved to \(url)")
-            case .failure(let error):
-                print("Error saving: \(error)")
-            }
         }
         .navigationTitle("Screenshot Background Tool")
         .toolbar {
@@ -181,6 +168,41 @@ struct EditorView: View {
         .background(Color(NSColor.windowBackgroundColor).opacity(0.5))
         .cornerRadius(8)
         .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+    }
+    
+    /**
+     * Exports the screenshot using NSSavePanel instead of fileExporter
+     * This prevents the app from quitting after export
+     */
+    private func exportImage() {
+        guard let image = viewModel.image else { return }
+        
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.png]
+        savePanel.canCreateDirectories = true
+        savePanel.isExtensionHidden = false
+        savePanel.title = "Save Screenshot"
+        savePanel.message = "Choose a location to save your screenshot"
+        savePanel.nameFieldLabel = "File name:"
+        savePanel.nameFieldStringValue = "screenshot"
+        
+        savePanel.beginSheetModal(for: NSApp.keyWindow ?? NSWindow()) { response in
+            if response == .OK {
+                if let url = savePanel.url {
+                    // Convert NSImage to PNG data
+                    if let pngData = image.tiffRepresentation,
+                       let bitmap = NSBitmapImageRep(data: pngData),
+                       let data = bitmap.representation(using: .png, properties: [:]) {
+                        do {
+                            try data.write(to: url)
+                            print("Image saved successfully to \(url)")
+                        } catch {
+                            print("Error saving image: \(error)")
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

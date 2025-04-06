@@ -58,7 +58,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
      * Requests necessary permissions for screen capture
      */
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Hide the app from Dock
+        // Hide the app from Dock - set this first thing
         NSApp.setActivationPolicy(.accessory)
         
         // Request screen recording permission
@@ -249,6 +249,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
      * Open launcher window
      */
     @objc private func openLauncher() {
+        // Switch to regular activation policy before showing window
+        NSApp.setActivationPolicy(.regular)
+        
         // If we already have a launcher window controller, just show its window
         if let windowController = launcherWindowController, let window = windowController.window {
             window.makeKeyAndOrderFront(nil)
@@ -437,6 +440,11 @@ class AppState: ObservableObject {
      * Shows a new window for editing the captured screenshot
      */
     private func showEditingWindow(with image: NSImage) {
+        // Switch to regular activation policy before showing editor window
+        DispatchQueue.main.async {
+            NSApp.setActivationPolicy(.regular)
+        }
+        
         let editorViewModel = EditorViewModel()
         editorViewModel.setImage(image)
         
@@ -481,7 +489,26 @@ class WindowDelegate: NSObject, NSWindowDelegate {
         // Don't actually close the window, just hide it
         sender.orderOut(nil)
         
+        // After hiding all windows, ensure app is removed from Dock
+        DispatchQueue.main.async {
+            // Check if all app windows are hidden or closed
+            let visibleWindows = NSApp.windows.filter { $0.isVisible }
+            if visibleWindows.isEmpty {
+                // If no visible windows, set app back to accessory mode (menu bar only)
+                NSApp.setActivationPolicy(.accessory)
+            }
+        }
+        
         // Return false to prevent the default close behavior
         return false
+    }
+    
+    /**
+     * Called when the window becomes key (active)
+     * Ensure app is visible in Dock while windows are open
+     */
+    func windowDidBecomeKey(_ notification: Notification) {
+        // When a window becomes active, make sure app is visible
+        NSApp.setActivationPolicy(.regular)
     }
 }
