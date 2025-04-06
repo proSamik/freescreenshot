@@ -21,8 +21,8 @@ class EditorViewModel: ObservableObject {
     @Published var backgroundImage: NSImage?
     @Published var is3DEffect: Bool = false
     @Published var perspective3DDirection: Perspective3DDirection = .bottomRight
-    @Published var canvasWidth: CGFloat = 600
-    @Published var canvasHeight: CGFloat = 400
+    @Published var aspectRatio: AspectRatio = .square
+    @Published var imagePadding: CGFloat = 20 // Percentage padding around the image (0-50)
     
     // Editor state
     @Published var currentTool: EditingTool = .select
@@ -49,11 +49,34 @@ class EditorViewModel: ObservableObject {
         self.image = newImage
         self.originalImage = newImage
         
-        // Set initial canvas size based on image dimensions with some padding
-        let imageSize = newImage.size
-        let padding = min(imageSize.width, imageSize.height) * 0.2
-        self.canvasWidth = imageSize.width + padding * 2
-        self.canvasHeight = imageSize.height + padding * 2
+        // Set initial aspect ratio based on image dimensions
+        let imageRatio = newImage.size.width / newImage.size.height
+        
+        // Choose the closest aspect ratio
+        if abs(imageRatio - 1.0) < 0.1 {
+            self.aspectRatio = .square
+        } else if abs(imageRatio - (16.0/9.0)) < 0.1 {
+            self.aspectRatio = .widescreen
+        } else if abs(imageRatio - (9.0/16.0)) < 0.1 {
+            self.aspectRatio = .portrait
+        } else if abs(imageRatio - (4.0/3.0)) < 0.1 {
+            self.aspectRatio = .traditional
+        } else if abs(imageRatio - (3.0/4.0)) < 0.1 {
+            self.aspectRatio = .traditionalPortrait
+        } else if abs(imageRatio - (3.0/2.0)) < 0.1 {
+            self.aspectRatio = .photo
+        } else if abs(imageRatio - (2.0/3.0)) < 0.1 {
+            self.aspectRatio = .photoPortrait
+        } else if imageRatio > 1.0 {
+            // Default for landscape images
+            self.aspectRatio = .widescreen
+        } else {
+            // Default for portrait images
+            self.aspectRatio = .portrait
+        }
+        
+        // Set default padding
+        self.imagePadding = 20
         
         // Reset all editing settings
         self.elements = []
@@ -101,8 +124,22 @@ class EditorViewModel: ObservableObject {
         
         // Original image dimensions
         let imageSize = originalImage.size
+        let aspectRatio = self.aspectRatio.ratio
         
-        // Use custom canvas dimensions
+        // Determine the canvas size based on aspect ratio
+        var canvasWidth: CGFloat
+        var canvasHeight: CGFloat
+        
+        if aspectRatio >= 1.0 {
+            // Landscape or square aspect ratio
+            canvasWidth = 1000 // Base width
+            canvasHeight = canvasWidth / aspectRatio
+        } else {
+            // Portrait aspect ratio
+            canvasHeight = 1000 // Base height
+            canvasWidth = canvasHeight * aspectRatio
+        }
+        
         let resultSize = CGSize(width: canvasWidth, height: canvasHeight)
         
         // Create a new larger image to draw on for the background
@@ -152,20 +189,25 @@ class EditorViewModel: ObservableObject {
             NSBezierPath.fill(backgroundRect)
         }
         
-        // Calculate where to draw the original image (centered and fit to canvas)
+        // Calculate where to draw the original image (centered and with padding)
         let imageRatio = imageSize.width / imageSize.height
         let canvasRatio = resultSize.width / resultSize.height
+        
+        // Calculate available space after padding
+        let paddingFactor = min(max(imagePadding, 0), 50) / 100 // Convert percentage to factor (0-0.5)
+        let availableWidth = resultSize.width * (1 - paddingFactor * 2)
+        let availableHeight = resultSize.height * (1 - paddingFactor * 2)
         
         var drawingSize = imageSize
         var drawingOrigin = CGPoint.zero
         
         if imageRatio > canvasRatio {
             // Image is wider compared to canvas, fit by width
-            drawingSize.width = resultSize.width * 0.9 // Use 90% of width for some padding
+            drawingSize.width = availableWidth
             drawingSize.height = drawingSize.width / imageRatio
         } else {
             // Image is taller compared to canvas, fit by height
-            drawingSize.height = resultSize.height * 0.9 // Use 90% of height for some padding
+            drawingSize.height = availableHeight
             drawingSize.width = drawingSize.height * imageRatio
         }
         
@@ -363,4 +405,33 @@ enum Perspective3DDirection: String, CaseIterable, Identifiable {
         case .bottomRight: return "Bottom Right"
         }
     }
+}
+
+/**
+ * Enum defining common aspect ratios for the canvas
+ */
+enum AspectRatio: String, CaseIterable, Identifiable {
+    case square = "1:1"
+    case widescreen = "16:9"
+    case portrait = "9:16"
+    case traditional = "4:3"
+    case traditionalPortrait = "3:4"
+    case photo = "3:2"
+    case photoPortrait = "2:3"
+    
+    var id: String { self.rawValue }
+    
+    var ratio: CGFloat {
+        switch self {
+        case .square: return 1.0
+        case .widescreen: return 16.0 / 9.0
+        case .portrait: return 9.0 / 16.0
+        case .traditional: return 4.0 / 3.0
+        case .traditionalPortrait: return 3.0 / 4.0
+        case .photo: return 3.0 / 2.0
+        case .photoPortrait: return 2.0 / 3.0
+        }
+    }
+    
+    var displayName: String { rawValue }
 } 

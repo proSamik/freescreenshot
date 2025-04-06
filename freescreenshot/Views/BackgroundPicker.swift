@@ -19,8 +19,8 @@ struct BackgroundPicker: View {
     @State private var tempBackgroundGradient: Gradient
     @State private var tempIs3DEffect: Bool
     @State private var tempPerspective3DDirection: Perspective3DDirection
-    @State private var tempCanvasWidth: CGFloat
-    @State private var tempCanvasHeight: CGFloat
+    @State private var tempAspectRatio: AspectRatio
+    @State private var tempImagePadding: CGFloat
     @State private var refreshPreview: Bool = false
     
     // Predefined gradient presets
@@ -41,8 +41,8 @@ struct BackgroundPicker: View {
         self._tempBackgroundGradient = State(initialValue: viewModel.backgroundGradient)
         self._tempIs3DEffect = State(initialValue: viewModel.is3DEffect)
         self._tempPerspective3DDirection = State(initialValue: viewModel.perspective3DDirection)
-        self._tempCanvasWidth = State(initialValue: viewModel.canvasWidth)
-        self._tempCanvasHeight = State(initialValue: viewModel.canvasHeight)
+        self._tempAspectRatio = State(initialValue: viewModel.aspectRatio)
+        self._tempImagePadding = State(initialValue: viewModel.imagePadding)
     }
     
     var body: some View {
@@ -189,45 +189,52 @@ struct BackgroundPicker: View {
             
             // Canvas size adjustment
             VStack(alignment: .leading, spacing: 8) {
-                Text("Canvas Size")
+                Text("Canvas Settings")
                     .font(.subheadline)
                 
-                // Width slider
-                HStack {
-                    Text("Width: \(Int(tempCanvasWidth))")
-                        .font(.caption)
-                        .frame(width: 80, alignment: .leading)
-                    
-                    Slider(value: $tempCanvasWidth, in: 400...2000, step: 10)
-                        .onChange(of: tempCanvasWidth) { _ in
-                            updateAndApplyChanges()
-                        }
-                }
+                // Aspect ratio selector
+                Text("Aspect Ratio")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
                 
-                // Height slider
-                HStack {
-                    Text("Height: \(Int(tempCanvasHeight))")
-                        .font(.caption)
-                        .frame(width: 80, alignment: .leading)
-                    
-                    Slider(value: $tempCanvasHeight, in: 300...1500, step: 10)
-                        .onChange(of: tempCanvasHeight) { _ in
-                            updateAndApplyChanges()
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(AspectRatio.allCases) { ratio in
+                            Button(action: {
+                                tempAspectRatio = ratio
+                                updateAndApplyChanges()
+                            }) {
+                                Text(ratio.displayName)
+                                    .font(.caption)
+                                    .padding(.vertical, 4)
+                                    .padding(.horizontal, 8)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(tempAspectRatio == ratio ? Color.accentColor.opacity(0.2) : Color.gray.opacity(0.1))
+                                    )
+                                    .foregroundColor(tempAspectRatio == ratio ? .accentColor : .primary)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .stroke(tempAspectRatio == ratio ? Color.accentColor : Color.clear, lineWidth: 1)
+                                    )
+                            }
+                            .buttonStyle(PlainButtonStyle())
                         }
-                }
-                
-                // Reset button
-                Button("Reset to Default Size") {
-                    if let originalImage = viewModel.originalImage {
-                        let imageSize = originalImage.size
-                        let padding = min(imageSize.width, imageSize.height) * 0.2
-                        tempCanvasWidth = imageSize.width + padding * 2
-                        tempCanvasHeight = imageSize.height + padding * 2
-                        updateAndApplyChanges()
                     }
+                    .padding(.bottom, 4)
                 }
-                .font(.caption)
-                .padding(.top, 4)
+                
+                // Padding slider
+                HStack {
+                    Text("Padding: \(Int(tempImagePadding))%")
+                        .font(.caption)
+                        .frame(width: 100, alignment: .leading)
+                    
+                    Slider(value: $tempImagePadding, in: 0...40, step: 1)
+                        .onChange(of: tempImagePadding) { _ in
+                            updateAndApplyChanges()
+                        }
+                }
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 8)
@@ -312,8 +319,8 @@ struct BackgroundPicker: View {
         viewModel.backgroundGradient = tempBackgroundGradient
         viewModel.is3DEffect = tempIs3DEffect
         viewModel.perspective3DDirection = tempPerspective3DDirection
-        viewModel.canvasWidth = tempCanvasWidth
-        viewModel.canvasHeight = tempCanvasHeight
+        viewModel.aspectRatio = tempAspectRatio
+        viewModel.imagePadding = tempImagePadding
         
         // Apply the background change
         viewModel.applyBackground()

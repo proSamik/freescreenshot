@@ -21,6 +21,40 @@ struct EditorView: View {
     @State private var isShowingBackgroundPicker = false
     @State private var isShowingSaveDialog = false
     
+    /**
+     * Calculate canvas width based on aspect ratio
+     */
+    private var calculatedCanvasWidth: CGFloat {
+        if let image = viewModel.image {
+            let aspectRatio = viewModel.aspectRatio.ratio
+            if aspectRatio >= 1 {
+                // For landscape or square
+                return min(700, max(500, image.size.width * 1.2))
+            } else {
+                // For portrait
+                return min(600, max(400, image.size.height * 1.2 * aspectRatio))
+            }
+        }
+        return 600 // Default
+    }
+    
+    /**
+     * Calculate canvas height based on aspect ratio
+     */
+    private var calculatedCanvasHeight: CGFloat {
+        if let image = viewModel.image {
+            let aspectRatio = viewModel.aspectRatio.ratio
+            if aspectRatio >= 1 {
+                // For landscape or square
+                return calculatedCanvasWidth / aspectRatio
+            } else {
+                // For portrait
+                return min(800, max(500, image.size.height * 1.2))
+            }
+        }
+        return 500 // Default
+    }
+    
     var body: some View {
         VStack(spacing: 0) {
             // Toolbar - simplified to only show background feature
@@ -37,10 +71,10 @@ struct EditorView: View {
             GeometryReader { geometry in
                 ScrollView([.horizontal, .vertical], showsIndicators: true) {
                     editorCanvasView
-                        // Dynamic sizing based on image dimensions
+                        // Dynamic sizing based on aspect ratio and available space
                         .frame(
-                            width: viewModel.image != nil ? max(viewModel.canvasWidth, 400) : 600,
-                            height: viewModel.image != nil ? max(viewModel.canvasHeight, 300) : 400
+                            width: calculatedCanvasWidth, 
+                            height: calculatedCanvasHeight
                         )
                         .frame(maxWidth: .infinity)
                         .frame(maxHeight: .infinity)
