@@ -50,10 +50,10 @@ struct BackgroundPicker: View {
     var body: some View {
         HStack(spacing: 0) {
             // LEFT COLUMN - Controls
-            VStack(spacing: 10) {
+            VStack(spacing: 0) {
                 Text("Background Options")
                     .font(.headline)
-                    .padding(.top, 10)
+                    .padding(.top, 8)
                 
                 // Background type selector
                 Picker("Background Type", selection: $tempBackgroundType) {
@@ -88,7 +88,7 @@ struct BackgroundPicker: View {
                                 .font(.subheadline)
                             
                             ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 12) {
+                                HStack(spacing: 4) {
                                     ForEach(0..<gradientPresets.count, id: \.self) { index in
                                         RoundedRectangle(cornerRadius: 8)
                                             .fill(
@@ -138,8 +138,8 @@ struct BackgroundPicker: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .frame(minHeight: 30)
+                .padding(.vertical, 4)
+                .frame(minHeight: 10)
                 
                 Divider()
                     .padding(.horizontal, 16)
