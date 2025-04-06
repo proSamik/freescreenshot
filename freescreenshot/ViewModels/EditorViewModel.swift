@@ -20,6 +20,7 @@ class EditorViewModel: ObservableObject {
     @Published var backgroundGradient: Gradient = Gradient(colors: [.blue, .purple])
     @Published var backgroundImage: NSImage?
     @Published var is3DEffect: Bool = false
+    @Published var perspective3DDirection: Perspective3DDirection = .bottomRight
     
     // Editor state
     @Published var currentTool: EditingTool = .select
@@ -149,7 +150,11 @@ class EditorViewModel: ObservableObject {
         
         // If 3D effect is enabled, apply it to the combined image
         if is3DEffect {
-            guard let perspectiveImage = ImageUtilities.apply3DEffect(to: resultImage, intensity: 0.2) else {
+            guard let perspectiveImage = ImageUtilities.apply3DEffect(
+                to: resultImage,
+                direction: perspective3DDirection,
+                intensity: 0.2
+            ) else {
                 self.image = resultImage
                 objectWillChange.send()
                 return
@@ -273,5 +278,34 @@ extension CGPath {
         }
         
         return path
+    }
+}
+
+/**
+ * Enum defining perspective 3D viewing angles
+ */
+enum Perspective3DDirection: String, CaseIterable, Identifiable {
+    case topLeft
+    case top
+    case topRight
+    case left
+    case bottomLeft
+    case bottom
+    case bottomRight
+    case right
+    
+    var id: String { self.rawValue }
+    
+    var displayName: String {
+        switch self {
+        case .topLeft: return "Top Left"
+        case .top: return "Top"
+        case .topRight: return "Top Right"
+        case .left: return "Left"
+        case .bottomLeft: return "Bottom Left"
+        case .bottom: return "Bottom"
+        case .bottomRight: return "Bottom Right"
+        case .right: return "Right"
+        }
     }
 } 

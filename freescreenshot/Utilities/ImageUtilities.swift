@@ -38,10 +38,10 @@ class ImageUtilities {
     /**
      * Applies a 3D perspective transform to an image
      */
-    static func apply3DEffect(to image: NSImage, intensity: CGFloat = 0.2) -> NSImage? {
+    static func apply3DEffect(to image: NSImage, direction: Perspective3DDirection = .bottomRight, intensity: CGFloat = 0.2) -> NSImage? {
         // Create a larger result image to accommodate the transformed content
         let imageSize = image.size
-        let padding = CGFloat(100) // Increase padding to prevent clipping
+        let padding = CGFloat(100) // Padding to prevent clipping
         let resultSize = CGSize(width: imageSize.width + padding*2, height: imageSize.height + padding*2)
         let resultImage = NSImage(size: resultSize)
         
@@ -51,10 +51,30 @@ class ImageUtilities {
         NSColor.clear.setFill()
         NSRect(origin: .zero, size: resultSize).fill()
         
-        // Create shadow
+        // Create shadow based on direction
         let shadow = NSShadow()
         shadow.shadowColor = NSColor.black.withAlphaComponent(0.5)
-        shadow.shadowOffset = NSSize(width: 20, height: 20)
+        
+        // Set shadow offset based on direction
+        switch direction {
+        case .topLeft:
+            shadow.shadowOffset = NSSize(width: -20, height: 20)
+        case .top:
+            shadow.shadowOffset = NSSize(width: 0, height: 20)
+        case .topRight:
+            shadow.shadowOffset = NSSize(width: 20, height: 20)
+        case .left:
+            shadow.shadowOffset = NSSize(width: -20, height: 0)
+        case .bottomLeft:
+            shadow.shadowOffset = NSSize(width: -20, height: -20)
+        case .bottom:
+            shadow.shadowOffset = NSSize(width: 0, height: -20)
+        case .bottomRight:
+            shadow.shadowOffset = NSSize(width: 20, height: -20)
+        case .right:
+            shadow.shadowOffset = NSSize(width: 20, height: 0)
+        }
+        
         shadow.shadowBlurRadius = 15
         shadow.set()
         
@@ -66,19 +86,57 @@ class ImageUtilities {
         // Draw the image with perspective effect
         let path = NSBezierPath()
         
-        // Define the perspective corners with less extreme values to avoid truncation
-        // Top-left
-        path.move(to: NSPoint(x: 0, y: imageSize.height))
+        // Define corner points based on image size
+        let topLeft = NSPoint(x: 0, y: imageSize.height)
+        let topRight = NSPoint(x: imageSize.width, y: imageSize.height)
+        let bottomLeft = NSPoint(x: 0, y: 0)
+        let bottomRight = NSPoint(x: imageSize.width, y: 0)
         
-        // Top-right - reduce the perspective effect to prevent truncation
-        path.line(to: NSPoint(x: imageSize.width, y: imageSize.height - imageSize.height * intensity * 0.2))
+        // Calculate transformed corner points based on perspective direction
+        var transformedTopLeft = topLeft
+        var transformedTopRight = topRight
+        var transformedBottomLeft = bottomLeft
+        var transformedBottomRight = bottomRight
         
-        // Bottom-right
-        path.line(to: NSPoint(x: imageSize.width, y: 0))
+        let xOffset = imageSize.width * intensity
+        let yOffset = imageSize.height * intensity
         
-        // Bottom-left
-        path.line(to: NSPoint(x: 0, y: 0))
+        switch direction {
+        case .topLeft:
+            transformedTopLeft = NSPoint(x: xOffset, y: imageSize.height)
+            transformedBottomLeft = NSPoint(x: xOffset, y: 0)
+            transformedTopRight = NSPoint(x: imageSize.width, y: imageSize.height - yOffset)
+        case .top:
+            transformedTopLeft = NSPoint(x: xOffset, y: imageSize.height)
+            transformedTopRight = NSPoint(x: imageSize.width - xOffset, y: imageSize.height)
+        case .topRight:
+            transformedTopRight = NSPoint(x: imageSize.width - xOffset, y: imageSize.height)
+            transformedBottomRight = NSPoint(x: imageSize.width - xOffset, y: 0)
+            transformedTopLeft = NSPoint(x: 0, y: imageSize.height - yOffset)
+        case .left:
+            transformedTopLeft = NSPoint(x: xOffset, y: imageSize.height)
+            transformedBottomLeft = NSPoint(x: xOffset, y: 0)
+        case .bottomLeft:
+            transformedBottomLeft = NSPoint(x: xOffset, y: 0)
+            transformedTopLeft = NSPoint(x: xOffset, y: imageSize.height)
+            transformedBottomRight = NSPoint(x: imageSize.width, y: yOffset)
+        case .bottom:
+            transformedBottomLeft = NSPoint(x: xOffset, y: 0)
+            transformedBottomRight = NSPoint(x: imageSize.width - xOffset, y: 0)
+        case .bottomRight:
+            transformedBottomRight = NSPoint(x: imageSize.width - xOffset, y: 0)
+            transformedTopRight = NSPoint(x: imageSize.width - xOffset, y: imageSize.height)
+            transformedBottomLeft = NSPoint(x: 0, y: yOffset)
+        case .right:
+            transformedTopRight = NSPoint(x: imageSize.width - xOffset, y: imageSize.height)
+            transformedBottomRight = NSPoint(x: imageSize.width - xOffset, y: 0)
+        }
         
+        // Draw the perspective shape with transformed points
+        path.move(to: transformedTopLeft)
+        path.line(to: transformedTopRight)
+        path.line(to: transformedBottomRight)
+        path.line(to: transformedBottomLeft)
         path.close()
         
         // Clip to this perspective shape

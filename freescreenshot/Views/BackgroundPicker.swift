@@ -18,6 +18,7 @@ struct BackgroundPicker: View {
     @State private var tempBackgroundColor: Color
     @State private var tempBackgroundGradient: Gradient
     @State private var tempIs3DEffect: Bool
+    @State private var tempPerspective3DDirection: Perspective3DDirection
     @State private var refreshPreview: Bool = false
     
     // Predefined gradient presets
@@ -37,6 +38,7 @@ struct BackgroundPicker: View {
         self._tempBackgroundColor = State(initialValue: viewModel.backgroundColor)
         self._tempBackgroundGradient = State(initialValue: viewModel.backgroundGradient)
         self._tempIs3DEffect = State(initialValue: viewModel.is3DEffect)
+        self._tempPerspective3DDirection = State(initialValue: viewModel.perspective3DDirection)
     }
     
     var body: some View {
@@ -139,6 +141,44 @@ struct BackgroundPicker: View {
                 }
                 .padding(.horizontal)
             
+            // 3D perspective direction selector (only shown when 3D effect is enabled)
+            if tempIs3DEffect {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Perspective Direction")
+                        .font(.subheadline)
+                    
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            ForEach(Perspective3DDirection.allCases) { direction in
+                                Button(action: {
+                                    tempPerspective3DDirection = direction
+                                    updateAndApplyChanges()
+                                }) {
+                                    VStack {
+                                        Image(systemName: directionIcon(for: direction))
+                                            .font(.system(size: 16))
+                                            .frame(width: 24, height: 24)
+                                        
+                                        Text(direction.displayName)
+                                            .font(.caption)
+                                            .lineLimit(1)
+                                            .frame(width: 60)
+                                    }
+                                    .padding(6)
+                                    .background(tempPerspective3DDirection == direction ? 
+                                               Color.accentColor.opacity(0.2) : Color.clear)
+                                    .cornerRadius(6)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                }
+                .padding(.horizontal)
+                .transition(.opacity)
+            }
+            
             // Preview
             if let image = viewModel.image {
                 Image(nsImage: image)
@@ -208,6 +248,7 @@ struct BackgroundPicker: View {
         viewModel.backgroundColor = tempBackgroundColor
         viewModel.backgroundGradient = tempBackgroundGradient
         viewModel.is3DEffect = tempIs3DEffect
+        viewModel.perspective3DDirection = tempPerspective3DDirection
         
         // Apply the background change
         DispatchQueue.main.async {
@@ -226,5 +267,29 @@ struct BackgroundPicker: View {
      */
     private func applyChanges() {
         updateAndApplyChanges()
+    }
+    
+    /**
+     * Returns an appropriate system icon name for each perspective direction
+     */
+    private func directionIcon(for direction: Perspective3DDirection) -> String {
+        switch direction {
+        case .topLeft:
+            return "arrow.up.left"
+        case .top:
+            return "arrow.up"
+        case .topRight:
+            return "arrow.up.right"
+        case .left:
+            return "arrow.left"
+        case .bottomLeft:
+            return "arrow.down.left"
+        case .bottom:
+            return "arrow.down"
+        case .bottomRight:
+            return "arrow.down.right"
+        case .right:
+            return "arrow.right"
+        }
     }
 } 
