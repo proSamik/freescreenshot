@@ -283,228 +283,259 @@ class EditorViewModel: ObservableObject {
         
         // For non-3D effects, we can just return the current image
         if !is3DEffect {
-            return image
+            return compressImageForExport(image)
         }
         
-        // For 3D effect, we need to completely rebuild the image
+        // For 3D effect, we need to completely rebuild the image with flat background
         
-        // 1. Get the proper image size based on aspect ratio - increase base resolution for higher quality
+        // 1. Use a more reasonable resolution to keep file size under 1MB
         var canvasWidth: CGFloat
         var canvasHeight: CGFloat
         
         if aspectRatio.ratio >= 1.0 {
             // Landscape or square aspect ratio
-            canvasWidth = 2000 // Doubled base width for better quality
+            canvasWidth = 1500 // Reduced resolution for smaller file size
             canvasHeight = canvasWidth / aspectRatio.ratio
         } else {
             // Portrait aspect ratio
-            canvasHeight = 2000 // Doubled base height for better quality
+            canvasHeight = 1500 // Reduced resolution for smaller file size
             canvasWidth = canvasHeight * aspectRatio.ratio
         }
         
         let baseSize = CGSize(width: canvasWidth, height: canvasHeight)
         
-        // 2. Create a larger canvas to accommodate the 3D transformation
-        let exportSize = CGSize(width: baseSize.width * 1.8, height: baseSize.height * 1.8)
-        let exportImage = NSImage(size: exportSize)
+        // 2. Create our export canvas - reasonable size to keep file under 1MB
+        let exportImage = NSImage(size: baseSize)
         
         // Enable high quality rendering
         exportImage.lockFocusFlipped(false)
         
-        // Enable higher quality image interpolation
+        // Enable higher quality image interpolation, but not max to keep size reasonable
         if let context = NSGraphicsContext.current {
-            context.imageInterpolation = .high
+            context.imageInterpolation = .high 
             context.shouldAntialias = true
             context.compositingOperation = .copy
         }
         
-        // 3. Clear background
-        NSColor.clear.setFill()
-        NSRect(origin: .zero, size: exportSize).fill()
-        
-        // 4. Calculate the translation to center everything
-        let translateX = (exportSize.width - baseSize.width) / 2
-        let translateY = (exportSize.height - baseSize.height) / 2
-        
-        // 5. First draw ONLY the background without the screenshot
-        if backgroundType != .none {
-            // Create a canvas just for the background
-            let bgImage = NSImage(size: baseSize)
-            bgImage.lockFocusFlipped(false)
-            
-            // Set high quality for background rendering
-            if let context = NSGraphicsContext.current {
-                context.imageInterpolation = .high
-                context.shouldAntialias = true
-            }
-            
-            // Clear first
-            NSColor.clear.setFill()
+        // 3. Draw the FLAT background first (no 3D effect applied)
+        switch backgroundType {
+        case .solid:
+            // Simple solid color
+            NSColor(backgroundColor).setFill()
             NSRect(origin: .zero, size: baseSize).fill()
             
-            // Draw background based on selected type
-            switch backgroundType {
-            case .solid:
-                NSColor(backgroundColor).setFill()
-                NSRect(origin: .zero, size: baseSize).fill()
+        case .gradient:
+            // Draw gradient background
+            if let gradientContext = NSGraphicsContext.current?.cgContext {
+                let colors = backgroundGradient.stops.map { NSColor($0.color).cgColor }
+                let colorSpace = CGColorSpaceCreateDeviceRGB()
+                let positions = backgroundGradient.stops.map { CGFloat($0.location) }
                 
-            case .gradient:
-                if let gradientContext = NSGraphicsContext.current?.cgContext {
-                    let colors = backgroundGradient.stops.map { NSColor($0.color).cgColor }
-                    let colorSpace = CGColorSpaceCreateDeviceRGB()
-                    let positions = backgroundGradient.stops.map { CGFloat($0.location) }
-                    
-                    if let gradient = CGGradient(colorsSpace: colorSpace, colors: colors as CFArray, locations: positions) {
-                        gradientContext.drawLinearGradient(
-                            gradient,
-                            start: CGPoint(x: 0, y: 0),
-                            end: CGPoint(x: baseSize.width, y: baseSize.height),
-                            options: []
-                        )
-                    }
+                if let gradient = CGGradient(colorsSpace: colorSpace, colors: colors as CFArray, locations: positions) {
+                    // Draw gradient to fill the entire background as a flat surface
+                    gradientContext.drawLinearGradient(
+                        gradient,
+                        start: CGPoint(x: 0, y: 0),
+                        end: CGPoint(x: baseSize.width, y: baseSize.height),
+                        options: [.drawsBeforeStartLocation, .drawsAfterEndLocation]
+                    )
                 }
-                
-            case .image:
-                if let bgImage = backgroundImage {
-                    // Draw background image at high quality
-                    let drawRect = CGRect(origin: .zero, size: baseSize)
-                    bgImage.draw(in: drawRect, from: .zero, operation: .copy, fraction: 1.0, respectFlipped: true, hints: [
-                        NSImageRep.HintKey.interpolation: NSNumber(value: NSImageInterpolation.high.rawValue)
-                    ])
-                }
-                
-            case .none:
-                break
             }
             
-            bgImage.unlockFocus()
+        case .image:
+            if let bgImage = backgroundImage {
+                // Draw background image at high quality
+                bgImage.draw(in: NSRect(origin: .zero, size: baseSize),
+                            from: .zero,
+                            operation: .copy,
+                            fraction: 1.0,
+                            respectFlipped: true,
+                            hints: [NSImageRep.HintKey.interpolation: NSNumber(value: NSImageInterpolation.high.rawValue)])
+            }
             
-            // Draw the background at the center without any transformation - high quality
-            bgImage.draw(in: CGRect(x: translateX, y: translateY, width: baseSize.width, height: baseSize.height),
-                         from: .zero,
-                         operation: .copy,
-                         fraction: 1.0,
-                         respectFlipped: true,
-                         hints: [NSImageRep.HintKey.interpolation: NSNumber(value: NSImageInterpolation.high.rawValue)])
+        case .none:
+            // White background
+            NSColor.white.setFill()
+            NSRect(origin: .zero, size: baseSize).fill()
         }
         
-        // 6. Calculate the padding for the screenshot content
+        // 4. Calculate padding for the screenshot content
         let paddingFactor = min(max(imagePadding, 0), 50) / 100 // Convert percentage to factor (0-0.5)
         
-        // Add extra padding for 3D effect to ensure it stays within bounds
-        let extraPadding = 0.1 // Additional 10% padding for 3D effect
-        let paddingX = baseSize.width * (paddingFactor + extraPadding)
-        let paddingY = baseSize.height * (paddingFactor + extraPadding)
+        // Define the area where the screenshot will be placed
+        let contentWidth = baseSize.width * (1 - paddingFactor * 2)
+        let contentHeight = baseSize.height * (1 - paddingFactor * 2)
+        let contentX = baseSize.width * paddingFactor
+        let contentY = baseSize.height * paddingFactor
         
-        let contentRect = CGRect(
-            x: paddingX,
-            y: paddingY,
-            width: baseSize.width - (paddingX * 2),
-            height: baseSize.height - (paddingY * 2)
-        )
+        // 5. Create a SEPARATE IMAGE for the 3D screenshot
+        let screenshotSize = CGSize(width: contentWidth * 1.2, height: contentHeight * 1.2)
+        let screenshotImage = NSImage(size: screenshotSize)
         
-        // 7. Create an image with ONLY the screenshot content (no background) at high quality
-        let screenshotImage = NSImage(size: baseSize)
         screenshotImage.lockFocusFlipped(false)
         
-        // Set high quality rendering for the screenshot
+        // Set high quality for screenshot
         if let context = NSGraphicsContext.current {
             context.imageInterpolation = .high
             context.shouldAntialias = true
         }
         
-        // Clear to transparent
+        // Clear background
         NSColor.clear.setFill()
-        NSRect(origin: .zero, size: baseSize).fill()
+        NSRect(origin: .zero, size: screenshotSize).fill()
+        
+        // Calculate position for the screenshot content in its own canvas
+        let screenshotContentWidth = contentWidth * 0.9
+        let screenshotContentHeight = contentHeight * 0.9
+        let screenshotContentX = (screenshotSize.width - screenshotContentWidth) / 2
+        let screenshotContentY = (screenshotSize.height - screenshotContentHeight) / 2
         
         // Draw the screenshot with corner radius if needed
+        let screenshotRect = NSRect(x: screenshotContentX, 
+                                   y: screenshotContentY, 
+                                   width: screenshotContentWidth, 
+                                   height: screenshotContentHeight)
+        
         if cornerRadius > 0 {
-            let path = NSBezierPath(roundedRect: contentRect, xRadius: cornerRadius, yRadius: cornerRadius)
-            path.lineWidth = 0 // Ensure no border is drawn
+            let path = NSBezierPath(roundedRect: screenshotRect, xRadius: cornerRadius, yRadius: cornerRadius)
             NSGraphicsContext.current?.saveGraphicsState()
             path.setClip()
-            
-            // Draw original image at high quality
-            originalImage.draw(in: contentRect,
-                              from: .zero,
-                              operation: .copy,
-                              fraction: 1.0,
-                              respectFlipped: true,
-                              hints: [NSImageRep.HintKey.interpolation: NSNumber(value: NSImageInterpolation.high.rawValue)])
-            
+            originalImage.draw(in: screenshotRect, from: .zero, operation: .copy, fraction: 1.0)
             NSGraphicsContext.current?.restoreGraphicsState()
         } else {
-            // Just draw the content at high quality
-            originalImage.draw(in: contentRect,
-                              from: .zero,
-                              operation: .copy,
-                              fraction: 1.0,
-                              respectFlipped: true,
-                              hints: [NSImageRep.HintKey.interpolation: NSNumber(value: NSImageInterpolation.high.rawValue)])
+            originalImage.draw(in: screenshotRect, from: .zero, operation: .copy, fraction: 1.0)
         }
         
         screenshotImage.unlockFocus()
         
-        // 8. Add the 3D transformed screenshot
-        NSGraphicsContext.current?.saveGraphicsState()
+        // 6. Apply 3D transformation to the screenshot image
+        let transform3D = create3DTransform(for: perspective3DDirection)
         
-        // Get perspective transform parameters
-        let transform = getPerspectiveTransform(for: perspective3DDirection, size: baseSize)
+        // Apply the 3D transformation to get the final screenshot image
+        if let transformedScreenshot = apply3DTransform(to: screenshotImage, 
+                                                       transform: transform3D) {
+            // 7. Center the 3D transformed screenshot on the background
+            let transformedSize = transformedScreenshot.size
+            let transformedX = contentX + (contentWidth - transformedSize.width) / 2
+            let transformedY = contentY + (contentHeight - transformedSize.height) / 2
+            
+            // Add shadow
+            let shadow = NSShadow()
+            shadow.shadowColor = NSColor.black.withAlphaComponent(0.4)
+            shadow.shadowOffset = NSSize(width: 8, height: 8)
+            shadow.shadowBlurRadius = 15
+            shadow.set()
+            
+            // Draw the transformed screenshot on the background
+            transformedScreenshot.draw(in: NSRect(x: transformedX, 
+                                                y: transformedY, 
+                                                width: transformedSize.width, 
+                                                height: transformedSize.height),
+                                     from: .zero,
+                                     operation: .sourceOver,
+                                     fraction: 1.0)
+        }
         
-        // Softer shadow for cleaner look
-        let shadow = NSShadow()
-        shadow.shadowColor = NSColor.black.withAlphaComponent(0.4)
-        shadow.shadowOffset = NSSize(width: transform.shadowOffsetX, height: transform.shadowOffsetY)
-        shadow.shadowBlurRadius = 15
-        shadow.set()
+        exportImage.unlockFocus()
         
-        // Apply 3D transform to the screenshot
+        // Compress the final image to ensure it's under 1MB
+        return compressImageForExport(exportImage)
+    }
+    
+    /**
+     * Creates a 3D transformation matrix based on the perspective direction
+     */
+    private func create3DTransform(for direction: Perspective3DDirection) -> CATransform3D {
+        var transform3D = CATransform3DIdentity
+        transform3D.m34 = -1.0 / 800.0 // Perspective depth
+        
+        // Angle in radians (15 degrees)
+        let angle = CGFloat.pi / 12
+        
+        // Apply rotation based on direction
+        switch direction {
+        case .topLeft:
+            transform3D = CATransform3DRotate(transform3D, angle, 1, 0, 0)
+            transform3D = CATransform3DRotate(transform3D, -angle, 0, 1, 0)
+        case .top:
+            transform3D = CATransform3DRotate(transform3D, angle, 1, 0, 0)
+        case .topRight:
+            transform3D = CATransform3DRotate(transform3D, angle, 1, 0, 0)
+            transform3D = CATransform3DRotate(transform3D, angle, 0, 1, 0)
+        case .bottomLeft:
+            transform3D = CATransform3DRotate(transform3D, -angle, 1, 0, 0)
+            transform3D = CATransform3DRotate(transform3D, -angle, 0, 1, 0)
+        case .bottom:
+            transform3D = CATransform3DRotate(transform3D, -angle, 1, 0, 0)
+        case .bottomRight:
+            transform3D = CATransform3DRotate(transform3D, -angle, 1, 0, 0)
+            transform3D = CATransform3DRotate(transform3D, angle, 0, 1, 0)
+        }
+        
+        return transform3D
+    }
+    
+    /**
+     * Applies a 3D transformation to an image
+     */
+    private func apply3DTransform(to image: NSImage, transform: CATransform3D) -> NSImage? {
+        let imageSize = image.size
+        let exportSize = CGSize(width: imageSize.width * 1.3, height: imageSize.height * 1.3)
+        let result = NSImage(size: exportSize)
+        
+        result.lockFocusFlipped(false)
+        
+        // Clear background
+        NSColor.clear.setFill()
+        NSRect(origin: .zero, size: exportSize).fill()
+        
+        // Calculate the translation to center the image
+        let translateX = (exportSize.width - imageSize.width) / 2
+        let translateY = (exportSize.height - imageSize.height) / 2
+        
         if let context = NSGraphicsContext.current?.cgContext {
-            // Create a 3D transform
-            var transform3D = CATransform3DIdentity
-            transform3D.m34 = -1.0 / 800.0  // Less aggressive perspective for cleaner rendering
-            
-            // Apply rotation based on direction
-            transform3D = CATransform3DRotate(
-                transform3D,
-                transform.rotationX,
-                1, 0, 0
-            )
-            transform3D = CATransform3DRotate(
-                transform3D,
-                transform.rotationY,
-                0, 1, 0
-            )
-            
-            // Scale slightly less to ensure content stays within bounds
-            transform3D = CATransform3DScale(transform3D, 1.05, 1.05, 1.0)
-            
-            // Apply 3D transform to context
-            context.saveGState()
+            // Apply high quality rendering
             context.setShouldAntialias(true)
             context.setAllowsAntialiasing(true)
             context.interpolationQuality = .high
             
+            // Apply the transformation
+            context.saveGState()
             context.translateBy(x: translateX, y: translateY)
-            context.concatenate(CATransform3DGetAffineTransform(transform3D))
+            context.concatenate(CATransform3DGetAffineTransform(transform))
             
-            // Draw the screenshot with 3D effect at high quality
-            screenshotImage.draw(in: CGRect(origin: .zero, size: baseSize),
-                                from: .zero,
-                                operation: .copy,
-                                fraction: 1.0,
-                                respectFlipped: true,
-                                hints: [NSImageRep.HintKey.interpolation: NSNumber(value: NSImageInterpolation.high.rawValue)])
+            // Draw the image
+            image.draw(in: CGRect(origin: .zero, size: imageSize),
+                      from: .zero,
+                      operation: .copy,
+                      fraction: 1.0)
             
             context.restoreGState()
         }
         
-        NSGraphicsContext.current?.restoreGraphicsState()
+        result.unlockFocus()
+        return result
+    }
+    
+    /**
+     * Compresses an image to keep file size under 1MB
+     */
+    private func compressImageForExport(_ image: NSImage?) -> NSImage? {
+        guard let image = image else { return nil }
         
-        exportImage.unlockFocus()
+        // Convert to bitmap for compression
+        guard let tiffData = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiffData) else {
+            return image
+        }
         
-        // Trim excess transparent areas
-        return trimTransparentPadding(exportImage)
+        // Use JPEG compression with medium quality to keep file size under 1MB
+        guard let jpegData = bitmap.representation(using: .jpeg, properties: [.compressionFactor: NSNumber(value: 0.8)]) else {
+            return image
+        }
+        
+        // Convert back to NSImage
+        return NSImage(data: jpegData)
     }
     
     /**
@@ -574,9 +605,11 @@ class EditorViewModel: ObservableObject {
     }
     
     /**
-     * Trims transparent padding around an image
+     * Trims excess transparent padding around an image while preserving background
      */
     private func trimTransparentPadding(_ image: NSImage) -> NSImage {
+        // For images with backgrounds, we should be more conservative with trimming
+        // to avoid cutting off the background color
         guard let bitmap = image.representations.first as? NSBitmapImageRep else {
             return image
         }
@@ -584,6 +617,14 @@ class EditorViewModel: ObservableObject {
         let width = bitmap.pixelsWide
         let height = bitmap.pixelsHigh
         
+        // If there's a background, be more conservative with trimming
+        if backgroundType != .none {
+            // Just add a small margin around the image rather than aggressively trimming
+            let margin = 20 // Fixed margin in pixels
+            return image
+        }
+        
+        // For no background, we can still trim excess transparent areas
         var minX = width
         var minY = height
         var maxX = 0
@@ -603,7 +644,7 @@ class EditorViewModel: ObservableObject {
         }
         
         // Add small padding
-        let padding = 20
+        let padding = 40 // Increased padding to avoid cutting too close
         minX = max(0, minX - padding)
         minY = max(0, minY - padding)
         maxX = min(width - 1, maxX + padding)
