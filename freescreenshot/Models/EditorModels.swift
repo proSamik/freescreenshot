@@ -94,7 +94,8 @@ protocol EditableElement: Identifiable {
     var rotation: Angle { get set }
     var scale: CGFloat { get set }
     
-    func render() -> some View
+    associatedtype ViewType: View
+    func render() -> ViewType
 }
 
 /**
@@ -217,7 +218,10 @@ struct BoxShadowElement: EditableElement {
             Rectangle()
                 .frame(width: rect.width, height: rect.height)
                 .position(x: rect.midX, y: rect.midY)
-                .stroke(Color.white, lineWidth: 2)
+                .overlay(
+                    Rectangle()
+                        .stroke(Color.white, lineWidth: 2)
+                )
                 .shadow(color: shadowColor, radius: shadowRadius)
         }
         .position(position)
@@ -370,7 +374,7 @@ struct ArrowShape: Shape {
             
         case .bent:
             let midX = (start.x + end.x) / 2
-            let midY = (start.y + end.y) / 2
+            let _ = (start.y + end.y) / 2
             
             let controlPoint1 = CGPoint(x: midX, y: start.y)
             let controlPoint2 = CGPoint(x: midX, y: end.y)

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 /**
  * ContentView: Main view of the application
@@ -14,6 +15,7 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var editorViewModel = EditorViewModel()
+    @State private var isDropTargeted = false
     
     var body: some View {
         ZStack {
@@ -29,10 +31,6 @@ struct ContentView: View {
                         }
                 }
             }
-        }
-        .onDrop(of: [.fileURL], isTargeted: nil) { providers, _ in
-            handleDrop(providers: providers)
-            return true
         }
     }
     
@@ -52,11 +50,14 @@ struct ContentView: View {
             Text("Transform your screenshots into stunning visuals")
                 .font(.title3)
                 .foregroundColor(.secondary)
-                .padding(.bottom, 20)
+                .padding(.bottom, 10)
+            
+            // Drag & Drop Zone
+            dropZoneView
+                .padding(.vertical, 20)
             
             VStack(alignment: .leading, spacing: 15) {
                 instructionRow(icon: "keyboard", text: "Press Cmd+Shift+7 to capture a screenshot")
-                instructionRow(icon: "arrow.up.doc.on.clipboard", text: "Or drag & drop an image to edit")
                 instructionRow(icon: "wand.and.stars", text: "Add backgrounds, arrows, text, and effects")
                 instructionRow(icon: "square.and.arrow.up", text: "Export your enhanced screenshot")
             }
@@ -79,6 +80,34 @@ struct ContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(NSColor.windowBackgroundColor))
+    }
+    
+    /**
+     * Drop zone for image files
+     */
+    private var dropZoneView: some View {
+        VStack {
+            Image(systemName: "arrow.down.doc.fill")
+                .font(.system(size: 30))
+                .foregroundColor(isDropTargeted ? .accentColor : .secondary)
+                .padding(.bottom, 8)
+            
+            Text("Drag & Drop Image Here")
+                .font(.headline)
+                .foregroundColor(isDropTargeted ? .accentColor : .primary)
+        }
+        .frame(width: 300, height: 120)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(isDropTargeted ? Color.accentColor : Color.secondary.opacity(0.5), 
+                       style: StrokeStyle(lineWidth: 2, dash: [5]))
+                .background(isDropTargeted ? Color.accentColor.opacity(0.1) : Color.secondary.opacity(0.05))
+                .cornerRadius(12)
+        )
+        .onDrop(of: [UTType.fileURL.identifier], isTargeted: $isDropTargeted) { providers, _ in
+            handleDrop(providers: providers)
+            return true
+        }
     }
     
     /**

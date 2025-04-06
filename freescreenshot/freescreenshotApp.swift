@@ -10,32 +10,79 @@ import Cocoa
 import HotKey
 import Carbon.HIToolbox
 
+/**
+ * Main application class that sets up the UI and keyboard shortcuts
+ */
 @main
 struct FreeScreenshotApp: App {
     @StateObject private var appState = AppState()
-    private var screenshotHotkey: HotKey?
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
-    init() {
-        // Initialize the screenshot hotkey (Cmd+Shift+7)
-        screenshotHotkey = HotKey(key: .seven, modifiers: [.command, .shift])
-        
-        // Set up the hotkey action
-        screenshotHotkey?.keyDownHandler = {Fix
-            appState.initiateScreenCapture()
-        }
-    }
-    
+    /**
+     * Defines the app's UI scene
+     */
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environmentObject(appState)
+                .environmentObject(self.appState)
+                .onAppear {
+                    // Ensure window is properly sized and visible
+                    DispatchQueue.main.async {
+                        if let window = NSApplication.shared.windows.first {
+                            window.setContentSize(NSSize(width: 800, height: 600))
+                            window.center()
+                            window.makeKeyAndOrderFront(nil)
+                            NSApplication.shared.activate(ignoringOtherApps: true)
+                        }
+                    }
+                }
         }
         .commands {
             CommandGroup(after: .newItem) {
                 Button("Take Screenshot") {
-                    appState.initiateScreenCapture()
+                    self.appState.initiateScreenCapture()
                 }
                 .keyboardShortcut("7", modifiers: [.command, .shift])
+            }
+        }
+    }
+}
+
+/**
+ * AppDelegate: Handles application lifecycle events and permissions
+ */
+class AppDelegate: NSObject, NSApplicationDelegate {
+    /**
+     * Called when the application finishes launching
+     * Requests necessary permissions for screen capture
+     */
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // Request screen recording permission
+        let screenCaptureAccess = CGPreflightScreenCaptureAccess()
+        if !screenCaptureAccess {
+            let granted = CGRequestScreenCaptureAccess()
+            print("Screen capture access requested: \(granted)")
+        } else {
+            print("Screen capture access already granted")
+        }
+        
+        // Set up global hotkey for taking screenshots (Cmd+Shift+7)
+        setupHotkey()
+    }
+    
+    /**
+     * Sets up the global hotkey for taking screenshots
+     */
+    private func setupHotkey() {
+        let hotkey = HotKey(key: .seven, modifiers: [.command, .shift])
+        
+        // Set up the hotkey action
+        hotkey.keyDownHandler = {
+            if let appState = NSApplication.shared.windows.first?.contentViewController?.view.window?.windowController?.contentViewController?.representedObject as? AppState {
+                appState.initiateScreenCapture()
+            } else {
+                // Fallback if we can't access the AppState directly
+                NotificationCenter.default.post(name: Notification.Name("TakeScreenshot"), object: nil)
             }
         }
     }
@@ -49,6 +96,19 @@ class AppState: ObservableObject {
     @Published var isCapturingScreen = false
     @Published var capturedImage: NSImage?
     @Published var isEditorOpen = false
+    
+    init() {
+        // Listen for screenshot notifications from global hotkey
+        NotificationCenter.default.addObserver(self, selector: #selector(handleScreenshotNotification), name: Notification.Name("TakeScreenshot"), object: nil)
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
+    @objc private func handleScreenshotNotification() {
+        initiateScreenCapture()
+    }
     
     /**
      * Initiates the screen capture process
@@ -89,6 +149,7 @@ class AppState: ObservableObject {
                     // Reopen the main window
                     if let window = NSApplication.shared.windows.first {
                         window.makeKeyAndOrderFront(nil)
+                        NSApplication.shared.activate(ignoringOtherApps: true)
                     }
                 }
             }

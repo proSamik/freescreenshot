@@ -395,7 +395,7 @@ class EditorViewModel: ObservableObject {
 extension CGPath {
     func toBezierPath() -> NSBezierPath {
         let path = NSBezierPath()
-        var points = [CGPoint](repeating: .zero, count: 3)
+        var _ = [CGPoint](repeating: .zero, count: 3)
         
         self.applyWithBlock { (elementPtr: UnsafePointer<CGPathElement>) in
             let element = elementPtr.pointee

@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
+import Cocoa
 
 /**
  * EditorView: Main view for editing screenshots
@@ -41,120 +43,7 @@ struct EditorView: View {
                 .background(Color(NSColor.controlBackgroundColor))
             
             // Main editor canvas
-            ZStack {
-                // Background color/pattern
-                Color(NSColor.windowBackgroundColor)
-                    .ignoresSafeArea()
-                
-                // Image being edited
-                if let image = viewModel.image {
-                    Image(nsImage: image)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .padding()
-                }
-                
-                // Draw all elements
-                ForEach(viewModel.elements.indices, id: \.self) { index in
-                    ElementView(element: viewModel.elements[index])
-                        .opacity(0.99) // Workaround to ensure views update properly
-                }
-                
-                // Draw temporary elements during creation
-                if isDrawingArrow, let start = arrowStart, let current = currentDragPosition {
-                    ArrowShape(start: start, end: current, style: viewModel.arrowStyle)
-                        .stroke(Color(nsColor: NSColor(viewModel.textColor)), lineWidth: viewModel.lineWidth)
-                }
-                
-                if isDrawingHighlighter, highlighterPoints.count > 1 {
-                    Path { path in
-                        path.move(to: highlighterPoints[0])
-                        for point in highlighterPoints.dropFirst() {
-                            path.addLine(to: point)
-                        }
-                    }
-                    .stroke(
-                        Color(nsColor: NSColor(viewModel.highlighterColor)).opacity(viewModel.highlighterOpacity),
-                        lineWidth: viewModel.lineWidth * 5
-                    )
-                }
-                
-                if isSelectingBoxShadow, let start = boxShadowStart, let current = currentDragPosition {
-                    let rect = CGRect(
-                        x: min(start.x, current.x),
-                        y: min(start.y, current.y),
-                        width: abs(current.x - start.x),
-                        height: abs(current.y - start.y)
-                    )
-                    
-                    // Draw temporary box shadow
-                    ZStack {
-                        Rectangle()
-                            .fill(Color.black.opacity(0.5))
-                            .mask(
-                                Rectangle()
-                                    .fill(Color.black)
-                                    .overlay(
-                                        Rectangle()
-                                            .frame(width: rect.width, height: rect.height)
-                                            .position(x: rect.midX, y: rect.midY)
-                                            .blendMode(.destinationOut)
-                                    )
-                            )
-                        
-                        Rectangle()
-                            .frame(width: rect.width, height: rect.height)
-                            .position(x: rect.midX, y: rect.midY)
-                            .stroke(Color.white, lineWidth: 2)
-                    }
-                }
-                
-                if isSelectingGlassEffect, let start = glassEffectStart, let current = currentDragPosition {
-                    let rect = CGRect(
-                        x: min(start.x, current.x),
-                        y: min(start.y, current.y),
-                        width: abs(current.x - start.x),
-                        height: abs(current.y - start.y)
-                    )
-                    
-                    // Draw temporary glass effect
-                    Rectangle()
-                        .frame(width: rect.width, height: rect.height)
-                        .position(x: rect.midX, y: rect.midY)
-                        .blur(radius: 10)
-                        .background(Color.white.opacity(0.1))
-                        .cornerRadius(8)
-                }
-                
-                // Text editor
-                if isTextEditorActive, let position = textEditorPosition {
-                    TextField("Enter text", text: $textEditorContent, onCommit: {
-                        if !textEditorContent.isEmpty {
-                            viewModel.addText(at: position, text: textEditorContent)
-                        }
-                        isTextEditorActive = false
-                        textEditorContent = ""
-                    })
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .frame(width: 200)
-                    .position(position)
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(NSColor.windowBackgroundColor))
-            .onTapGesture { location in
-                handleCanvasTap(at: location)
-            }
-            .gesture(
-                DragGesture(minimumDistance: 0, coordinateSpace: .local)
-                    .onChanged { value in
-                        handleDrag(state: .changed, location: value.location)
-                    }
-                    .onEnded { value in
-                        handleDrag(state: .ended, location: value.location)
-                    }
-            )
+            editorCanvasView
         }
         .sheet(isPresented: $isShowingBackgroundPicker) {
             BackgroundPicker(viewModel: viewModel, isPresented: $isShowingBackgroundPicker)
@@ -183,6 +72,219 @@ struct EditorView: View {
                 Button("Back") {
                     presentationMode.wrappedValue.dismiss()
                 }
+            }
+        }
+    }
+    
+    /**
+     * Creates the main editor canvas view
+     */
+    private var editorCanvasView: some View {
+        ZStack {
+            // Background color/pattern
+            backgroundLayer
+            
+            // Image being edited
+            imageLayer
+            
+            // Draw all elements
+            elementsLayer
+            
+            // Temp drawing elements
+            temporaryDrawingElements
+            
+            // Text editor
+            textEditorLayer
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(NSColor.windowBackgroundColor))
+        .gesture(
+            TapGesture()
+                .onEnded {
+                    // If we've tapped without a valid currentDragPosition, we can't use this approach
+                    if let currentLocation = currentDragPosition {
+                        handleCanvasTap(at: currentLocation)
+                    }
+                }
+        )
+        .gesture(
+            DragGesture(minimumDistance: 0, coordinateSpace: .local)
+                .onChanged { value in
+                    // Store the current position for tap detection
+                    currentDragPosition = value.location
+                    handleDrag(state: .changed, location: value.location)
+                }
+                .onEnded { value in
+                    handleDrag(state: .ended, location: value.location)
+                }
+        )
+    }
+    
+    /**
+     * Background color/pattern layer
+     */
+    private var backgroundLayer: some View {
+        Color(NSColor.windowBackgroundColor)
+            .ignoresSafeArea()
+    }
+    
+    /**
+     * Image being edited layer
+     */
+    private var imageLayer: some View {
+        Group {
+            if let image = viewModel.image {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding()
+            }
+        }
+    }
+    
+    /**
+     * Elements layer for all editing elements
+     */
+    private var elementsLayer: some View {
+        ForEach(viewModel.elements.indices, id: \.self) { index in
+            ElementView(element: viewModel.elements[index])
+                .opacity(0.99) // Workaround to ensure views update properly
+        }
+    }
+    
+    /**
+     * Temporary drawing elements while editing
+     */
+    private var temporaryDrawingElements: some View {
+        Group {
+            // Arrow drawing
+            arrowDrawingLayer
+            
+            // Highlighter drawing
+            highlighterDrawingLayer
+            
+            // Box shadow
+            boxShadowLayer
+            
+            // Glass effect
+            glassEffectLayer
+        }
+    }
+    
+    /**
+     * Arrow drawing temporary layer
+     */
+    private var arrowDrawingLayer: some View {
+        Group {
+            if isDrawingArrow, let start = arrowStart, let current = currentDragPosition {
+                ArrowShape(start: start, end: current, style: viewModel.arrowStyle)
+                    .stroke(Color(nsColor: NSColor(viewModel.textColor)), lineWidth: viewModel.lineWidth)
+            }
+        }
+    }
+    
+    /**
+     * Highlighter drawing temporary layer
+     */
+    private var highlighterDrawingLayer: some View {
+        Group {
+            if isDrawingHighlighter, highlighterPoints.count > 1 {
+                Path { path in
+                    path.move(to: highlighterPoints[0])
+                    for point in highlighterPoints.dropFirst() {
+                        path.addLine(to: point)
+                    }
+                }
+                .stroke(
+                    Color(nsColor: NSColor(viewModel.highlighterColor)).opacity(viewModel.highlighterOpacity),
+                    lineWidth: viewModel.lineWidth * 5
+                )
+            }
+        }
+    }
+    
+    /**
+     * Box shadow drawing temporary layer
+     */
+    private var boxShadowLayer: some View {
+        Group {
+            if isSelectingBoxShadow, let start = boxShadowStart, let current = currentDragPosition {
+                let rect = CGRect(
+                    x: min(start.x, current.x),
+                    y: min(start.y, current.y),
+                    width: abs(current.x - start.x),
+                    height: abs(current.y - start.y)
+                )
+                
+                // Draw temporary box shadow
+                ZStack {
+                    Rectangle()
+                        .fill(Color.black.opacity(0.5))
+                        .mask(
+                            Rectangle()
+                                .fill(Color.black)
+                                .overlay(
+                                    Rectangle()
+                                        .frame(width: rect.width, height: rect.height)
+                                        .position(x: rect.midX, y: rect.midY)
+                                        .blendMode(.destinationOut)
+                                )
+                        )
+                    
+                    Rectangle()
+                        .frame(width: rect.width, height: rect.height)
+                        .position(x: rect.midX, y: rect.midY)
+                        .overlay(
+                            Rectangle()
+                                .stroke(Color.white, lineWidth: 2)
+                                .frame(width: rect.width, height: rect.height)
+                        )
+                }
+            }
+        }
+    }
+    
+    /**
+     * Glass effect drawing temporary layer
+     */
+    private var glassEffectLayer: some View {
+        Group {
+            if isSelectingGlassEffect, let start = glassEffectStart, let current = currentDragPosition {
+                let rect = CGRect(
+                    x: min(start.x, current.x),
+                    y: min(start.y, current.y),
+                    width: abs(current.x - start.x),
+                    height: abs(current.y - start.y)
+                )
+                
+                // Draw temporary glass effect
+                Rectangle()
+                    .frame(width: rect.width, height: rect.height)
+                    .position(x: rect.midX, y: rect.midY)
+                    .blur(radius: 10)
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(8)
+            }
+        }
+    }
+    
+    /**
+     * Text editor layer for active text editing
+     */
+    private var textEditorLayer: some View {
+        Group {
+            if isTextEditorActive, let position = textEditorPosition {
+                TextField("Enter text", text: $textEditorContent, onCommit: {
+                    if !textEditorContent.isEmpty {
+                        viewModel.addText(at: position, text: textEditorContent)
+                    }
+                    isTextEditorActive = false
+                    textEditorContent = ""
+                })
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .frame(width: 200)
+                .position(position)
             }
         }
     }
@@ -559,8 +661,8 @@ struct ElementView: View {
 /**
  * ImageDocument: Represents an image document for export
  */
-struct ImageDocument: FileDocument {
-    static var readableContentTypes: [UTType] { [.png, .jpeg] }
+struct ImageDocument: FileDocument, @unchecked Sendable {
+    static var readableContentTypes: [UTType] { [UTType.png, UTType.jpeg] }
     
     var image: NSImage
     

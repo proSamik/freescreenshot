@@ -40,19 +40,72 @@ class ImageUtilities {
      * Returns a new image with the mockup frame
      */
     static func createDeviceMockup(for image: NSImage, deviceType: DeviceType) -> NSImage? {
-        guard let mockupImage = NSImage(named: deviceType.imageName) else {
-            return nil
+        // Create a new image with appropriate size based on device type
+        let mockupSize: CGSize
+        let backgroundColor: NSColor
+        
+        switch deviceType {
+        case .macbook:
+            mockupSize = CGSize(width: 800, height: 500)
+            backgroundColor = NSColor.darkGray
+        case .iphone:
+            mockupSize = CGSize(width: 300, height: 600)
+            backgroundColor = NSColor.black
+        case .ipad:
+            mockupSize = CGSize(width: 600, height: 800)
+            backgroundColor = NSColor.gray
         }
         
-        let resultImage = NSImage(size: mockupImage.size)
+        let resultImage = NSImage(size: mockupSize)
         
         resultImage.lockFocus()
         
-        // Draw the mockup frame
-        mockupImage.draw(in: CGRect(origin: .zero, size: mockupImage.size))
+        // Draw the device mockup frame
+        let deviceFrame = CGRect(origin: .zero, size: mockupSize)
+        backgroundColor.setFill()
+        NSBezierPath(rect: deviceFrame).fill()
+        
+        // Draw device bezel with rounded corners
+        let bezelPath = NSBezierPath(roundedRect: deviceFrame.insetBy(dx: 10, dy: 10), 
+                                    xRadius: deviceType == .macbook ? 5 : 20, 
+                                    yRadius: deviceType == .macbook ? 5 : 20)
+        NSColor.black.setFill()
+        bezelPath.fill()
         
         // Calculate content frame
-        let contentFrame = deviceType.getContentRect(mockupSize: mockupImage.size)
+        let contentFrame = deviceType.getContentRect(mockupSize: mockupSize)
+        
+        // Draw screen background
+        let screenPath = NSBezierPath(rect: contentFrame)
+        NSColor.white.setFill()
+        screenPath.fill()
+        
+        // Add device-specific details
+        if deviceType == .macbook {
+            // Draw MacBook keyboard area
+            let keyboardRect = CGRect(x: mockupSize.width * 0.15, 
+                                     y: mockupSize.height * 0.05, 
+                                     width: mockupSize.width * 0.7, 
+                                     height: mockupSize.height * 0.1)
+            NSColor.lightGray.setFill()
+            NSBezierPath(roundedRect: keyboardRect, xRadius: 3, yRadius: 3).fill()
+        } else if deviceType == .iphone {
+            // Draw iPhone home indicator
+            let homeIndicatorRect = CGRect(x: mockupSize.width * 0.4, 
+                                          y: mockupSize.height * 0.03, 
+                                          width: mockupSize.width * 0.2, 
+                                          height: 5)
+            NSColor.darkGray.setFill()
+            NSBezierPath(roundedRect: homeIndicatorRect, xRadius: 2.5, yRadius: 2.5).fill()
+            
+            // Draw notch
+            let notchRect = CGRect(x: mockupSize.width * 0.35, 
+                                  y: mockupSize.height * 0.89, 
+                                  width: mockupSize.width * 0.3, 
+                                  height: 20)
+            NSColor.black.setFill()
+            NSBezierPath(roundedRect: notchRect, xRadius: 10, yRadius: 10).fill()
+        }
         
         // Scale and position the screenshot inside the device frame
         let imageSize = image.size
