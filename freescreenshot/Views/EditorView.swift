@@ -151,27 +151,34 @@ struct EditorView: View {
         Group {
             if let image = viewModel.image {
                 GeometryReader { geo in
-                    // Add container for proper 3D effect rendering
+                    // Container with static background
                     ZStack {
-                        // Static background that doesn't rotate (if using 3D effect)
-                        if viewModel.is3DEffect {
+                        // Static background that never rotates - provide extra padding for 3D rotation
+                        if viewModel.backgroundType != .none {
                             RoundedRectangle(cornerRadius: 12)
                                 .fill(Color(NSColor.windowBackgroundColor).opacity(0.5))
                                 .frame(
-                                    width: min(geo.size.width * 0.9, geo.size.height * 0.9),
-                                    height: min(geo.size.width * 0.9, geo.size.height * 0.9)
+                                    // Increased canvas size to accommodate 3D rotation
+                                    width: min(geo.size.width * 0.95, geo.size.height * 0.95),
+                                    height: min(geo.size.width * 0.95, geo.size.height * 0.95)
                                 )
+                                .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
                         }
                         
-                        // Image with 3D effect applied if enabled
+                        // Only apply 3D rotation to the screenshot, not the background
                         Image(nsImage: image)
                             .resizable()
                             .scaledToFit()
                             .frame(
-                                width: min(geo.size.width * 0.85, geo.size.height * 0.85),
-                                height: min(geo.size.width * 0.85, geo.size.height * 0.85)
+                                // Make image smaller to ensure it stays within canvas when rotated
+                                width: viewModel.is3DEffect 
+                                    ? min(geo.size.width * 0.7, geo.size.height * 0.7)
+                                    : min(geo.size.width * 0.8, geo.size.height * 0.8),
+                                height: viewModel.is3DEffect 
+                                    ? min(geo.size.width * 0.7, geo.size.height * 0.7)
+                                    : min(geo.size.width * 0.8, geo.size.height * 0.8)
                             )
-                            // Apply 3D rotation effect if enabled
+                            // Apply 3D rotation effect only to the image
                             .rotation3DEffect(
                                 viewModel.is3DEffect ? get3DRotationAngle() : .zero,
                                 axis: viewModel.is3DEffect ? get3DRotationAxis() : (x: 0, y: 0, z: 1),
