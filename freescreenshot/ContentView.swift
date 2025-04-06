@@ -32,7 +32,7 @@ struct ContentView: View {
                 }
             }
         }
-        .frame(minWidth: 800, minHeight: 600)
+        .frame(minWidth: 600, minHeight: 800)
     }
     
     /**
