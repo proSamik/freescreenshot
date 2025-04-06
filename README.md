@@ -7,15 +7,9 @@ FreeScreenshot is a macOS application that transforms dull screenshots into stun
 - Capture screenshots with Cmd+Shift+7 or drag and drop existing images
 - Add beautiful backgrounds to your screenshots
 - Choose from solid colors, gradients, or custom background images
-- Add device mockups (MacBook, iPhone, iPad) to your screenshots
 - Apply 3D perspective effects for a professional look
-- Add annotations with a variety of tools:
-  - Text with customizable fonts and colors
-  - Arrows with multiple styles (straight, curved, spiral, bent)
-  - Highlighter for emphasizing important areas
-  - Box shadow to focus on specific parts
-  - Glass effect to blur sensitive information
 - Export your enhanced screenshots in various formats
+- Then Edit more if required in FlameShot (Download it) or Preview (Pre-installed in MacOS)
 
 ## Getting Started
 
