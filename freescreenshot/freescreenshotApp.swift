@@ -46,6 +46,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var hotkey: HotKey?
     
+    // Keep strong references to windows to prevent them from being deallocated
+    private var launcherWindowController: NSWindowController?
+    private var windowDelegates = [NSWindowDelegate]()
+    
+    // Keep a reference to the app state
+    private let appState = AppState.shared
+    
     /**
      * Called when the application finishes launching
      * Requests necessary permissions for screen capture
@@ -80,6 +87,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self.openLauncher()
             }
         }
+    }
+    
+    /**
+     * Called when app is about to terminate
+     * Only happens with explicit quit, not window close
+     */
+    func applicationWillTerminate(_ notification: Notification) {
+        // Clean up resources before exit
+        print("Application is terminating")
+        // Additional cleanup if needed
     }
     
     /**
@@ -232,7 +249,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
      * Open launcher window
      */
     @objc private func openLauncher() {
-        // Check if a launcher window is already open
+        // If we already have a launcher window controller, just show its window
+        if let windowController = launcherWindowController, let window = windowController.window {
+            window.makeKeyAndOrderFront(nil)
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            return
+        }
+        
+        // Otherwise check if a launcher window is already open
         for window in NSApplication.shared.windows {
             if window.title == "FreeScreenshot Launcher" {
                 window.makeKeyAndOrderFront(nil)
@@ -252,11 +276,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             backing: .buffered,
             defer: false
         )
+        
+        // Set up window properties
         window.contentViewController = hostingController
         window.title = "FreeScreenshot Launcher"
         window.center()
-        window.makeKeyAndOrderFront(nil)
         
+        // Create a window delegate and keep a strong reference to it
+        let windowDelegate = WindowDelegate()
+        windowDelegates.append(windowDelegate)
+        window.delegate = windowDelegate
+        
+        // Create a window controller to manage the window lifecycle
+        let windowController = NSWindowController(window: window)
+        launcherWindowController = windowController
+        
+        windowController.showWindow(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
 
@@ -330,6 +365,10 @@ class AppState: ObservableObject {
     @Published var isCapturingScreen = false
     @Published var capturedImage: NSImage?
     @Published var isEditorOpen = false
+    
+    // Keep strong references to prevent deallocation
+    private var editorWindowController: NSWindowController?
+    private var windowDelegates = [NSWindowDelegate]()
     
     init() {
         // Listen for screenshot notifications from global hotkey
@@ -410,11 +449,39 @@ class AppState: ObservableObject {
             backing: .buffered,
             defer: false
         )
+        
+        // Set up window properties
         window.contentViewController = hostingController
         window.title = "Screenshot Editor"
         window.center()
-        window.makeKeyAndOrderFront(nil)
         
+        // Create a window delegate and keep a strong reference to it
+        let windowDelegate = WindowDelegate()
+        windowDelegates.append(windowDelegate)
+        window.delegate = windowDelegate
+        
+        // Create a window controller to manage the window lifecycle
+        let windowController = NSWindowController(window: window)
+        editorWindowController = windowController
+        
+        windowController.showWindow(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
+    }
+}
+
+/**
+ * WindowDelegate: Handles window close events to prevent app termination
+ */
+class WindowDelegate: NSObject, NSWindowDelegate {
+    /**
+     * Called when the window close button is clicked
+     * Just hides the window instead of allowing it to be destructively closed
+     */
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        // Don't actually close the window, just hide it
+        sender.orderOut(nil)
+        
+        // Return false to prevent the default close behavior
+        return false
     }
 }

@@ -35,10 +35,12 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSSupportsAutomaticTermination</key>
-	<true/>
+	<false/>
 	<key>NSSupportsSuddenTermination</key>
-	<true/>
+	<false/>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>FreeScreenshot needs to interact with other apps to perform screenshot capture.</string>
+	<key>LSMultipleInstancesProhibited</key>
+	<true/>
 </dict>
 </plist> 
