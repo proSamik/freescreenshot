@@ -37,9 +37,11 @@ struct EditorView: View {
             GeometryReader { geometry in
                 ScrollView([.horizontal, .vertical], showsIndicators: true) {
                     editorCanvasView
-                        // Using separate modifiers to avoid parameter order issues
-                        .frame(width: max(min(600, geometry.size.width - 40), 0))
-                        .frame(height: max(min(400, geometry.size.height - 40), 0))
+                        // Dynamic sizing based on image dimensions
+                        .frame(
+                            width: viewModel.image != nil ? max(viewModel.canvasWidth, 400) : 600,
+                            height: viewModel.image != nil ? max(viewModel.canvasHeight, 300) : 400
+                        )
                         .frame(maxWidth: .infinity)
                         .frame(maxHeight: .infinity)
                         .padding(20)
@@ -131,10 +133,7 @@ struct EditorView: View {
                     Image(nsImage: image)
                         .resizable()
                         .scaledToFit()
-                        // Using separate modifiers to avoid parameter order issues
-                        .frame(width: geo.size.width)
-                        .frame(height: geo.size.height)
-                        .frame(alignment: .center)
+                        .frame(maxWidth: geo.size.width, maxHeight: geo.size.height)
                         .id(image.hashValue) // Force refresh when image changes
                 }
                 .frame(maxWidth: .infinity)

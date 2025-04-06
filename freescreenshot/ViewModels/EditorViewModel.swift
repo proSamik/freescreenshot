@@ -21,6 +21,8 @@ class EditorViewModel: ObservableObject {
     @Published var backgroundImage: NSImage?
     @Published var is3DEffect: Bool = false
     @Published var perspective3DDirection: Perspective3DDirection = .bottomRight
+    @Published var canvasWidth: CGFloat = 600
+    @Published var canvasHeight: CGFloat = 400
     
     // Editor state
     @Published var currentTool: EditingTool = .select
@@ -46,6 +48,13 @@ class EditorViewModel: ObservableObject {
     func setImage(_ newImage: NSImage) {
         self.image = newImage
         self.originalImage = newImage
+        
+        // Set initial canvas size based on image dimensions with some padding
+        let imageSize = newImage.size
+        let padding = min(imageSize.width, imageSize.height) * 0.2
+        self.canvasWidth = imageSize.width + padding * 2
+        self.canvasHeight = imageSize.height + padding * 2
+        
         // Reset all editing settings
         self.elements = []
         self.selectedElementId = nil
@@ -93,12 +102,8 @@ class EditorViewModel: ObservableObject {
         // Original image dimensions
         let imageSize = originalImage.size
         
-        // Add padding around the image for the background (20% on each side)
-        let padding = min(imageSize.width, imageSize.height) * 0.2
-        let resultSize = CGSize(
-            width: imageSize.width + padding * 2,
-            height: imageSize.height + padding * 2
-        )
+        // Use custom canvas dimensions
+        let resultSize = CGSize(width: canvasWidth, height: canvasHeight)
         
         // Create a new larger image to draw on for the background
         let resultImage = NSImage(size: resultSize)
@@ -147,13 +152,28 @@ class EditorViewModel: ObservableObject {
             NSBezierPath.fill(backgroundRect)
         }
         
-        // Calculate where to draw the original image (centered)
-        let imageRect = CGRect(
-            x: padding,
-            y: padding,
-            width: imageSize.width,
-            height: imageSize.height
-        )
+        // Calculate where to draw the original image (centered and fit to canvas)
+        let imageRatio = imageSize.width / imageSize.height
+        let canvasRatio = resultSize.width / resultSize.height
+        
+        var drawingSize = imageSize
+        var drawingOrigin = CGPoint.zero
+        
+        if imageRatio > canvasRatio {
+            // Image is wider compared to canvas, fit by width
+            drawingSize.width = resultSize.width * 0.9 // Use 90% of width for some padding
+            drawingSize.height = drawingSize.width / imageRatio
+        } else {
+            // Image is taller compared to canvas, fit by height
+            drawingSize.height = resultSize.height * 0.9 // Use 90% of height for some padding
+            drawingSize.width = drawingSize.height * imageRatio
+        }
+        
+        // Center the image on the canvas
+        drawingOrigin.x = (resultSize.width - drawingSize.width) / 2
+        drawingOrigin.y = (resultSize.height - drawingSize.height) / 2
+        
+        let imageRect = CGRect(origin: drawingOrigin, size: drawingSize)
         
         // If 3D effect is enabled, draw the transformed image
         if is3DEffect {
@@ -171,9 +191,28 @@ class EditorViewModel: ObservableObject {
             ) {
                 // Draw the 3D transformed image centered on the background
                 let perspectiveSize = perspectiveImage.size
-                let centerX = (resultSize.width - perspectiveSize.width) / 2
-                let centerY = (resultSize.height - perspectiveSize.height) / 2
-                perspectiveImage.draw(in: CGRect(x: centerX, y: centerY, width: perspectiveSize.width, height: perspectiveSize.height))
+                
+                // Scale the perspective image to fit within our drawing area
+                let perspectiveRatio = perspectiveSize.width / perspectiveSize.height
+                var perspectiveDrawSize = perspectiveSize
+                
+                if perspectiveRatio > canvasRatio {
+                    perspectiveDrawSize.width = drawingSize.width
+                    perspectiveDrawSize.height = perspectiveDrawSize.width / perspectiveRatio
+                } else {
+                    perspectiveDrawSize.height = drawingSize.height
+                    perspectiveDrawSize.width = perspectiveDrawSize.height * perspectiveRatio
+                }
+                
+                let perspectiveX = (resultSize.width - perspectiveDrawSize.width) / 2
+                let perspectiveY = (resultSize.height - perspectiveDrawSize.height) / 2
+                
+                perspectiveImage.draw(
+                    in: CGRect(x: perspectiveX, y: perspectiveY, width: perspectiveDrawSize.width, height: perspectiveDrawSize.height),
+                    from: .zero,
+                    operation: .sourceOver,
+                    fraction: 1.0
+                )
             } else {
                 // Fallback if transformation fails
                 originalImage.draw(in: imageRect, from: .zero, operation: .sourceOver, fraction: 1.0)

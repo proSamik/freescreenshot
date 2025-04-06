@@ -19,6 +19,8 @@ struct BackgroundPicker: View {
     @State private var tempBackgroundGradient: Gradient
     @State private var tempIs3DEffect: Bool
     @State private var tempPerspective3DDirection: Perspective3DDirection
+    @State private var tempCanvasWidth: CGFloat
+    @State private var tempCanvasHeight: CGFloat
     @State private var refreshPreview: Bool = false
     
     // Predefined gradient presets
@@ -39,6 +41,8 @@ struct BackgroundPicker: View {
         self._tempBackgroundGradient = State(initialValue: viewModel.backgroundGradient)
         self._tempIs3DEffect = State(initialValue: viewModel.is3DEffect)
         self._tempPerspective3DDirection = State(initialValue: viewModel.perspective3DDirection)
+        self._tempCanvasWidth = State(initialValue: viewModel.canvasWidth)
+        self._tempCanvasHeight = State(initialValue: viewModel.canvasHeight)
     }
     
     var body: some View {
@@ -183,6 +187,51 @@ struct BackgroundPicker: View {
                 .transition(.opacity)
             }
             
+            // Canvas size adjustment
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Canvas Size")
+                    .font(.subheadline)
+                
+                // Width slider
+                HStack {
+                    Text("Width: \(Int(tempCanvasWidth))")
+                        .font(.caption)
+                        .frame(width: 80, alignment: .leading)
+                    
+                    Slider(value: $tempCanvasWidth, in: 400...2000, step: 10)
+                        .onChange(of: tempCanvasWidth) { _ in
+                            updateAndApplyChanges()
+                        }
+                }
+                
+                // Height slider
+                HStack {
+                    Text("Height: \(Int(tempCanvasHeight))")
+                        .font(.caption)
+                        .frame(width: 80, alignment: .leading)
+                    
+                    Slider(value: $tempCanvasHeight, in: 300...1500, step: 10)
+                        .onChange(of: tempCanvasHeight) { _ in
+                            updateAndApplyChanges()
+                        }
+                }
+                
+                // Reset button
+                Button("Reset to Default Size") {
+                    if let originalImage = viewModel.originalImage {
+                        let imageSize = originalImage.size
+                        let padding = min(imageSize.width, imageSize.height) * 0.2
+                        tempCanvasWidth = imageSize.width + padding * 2
+                        tempCanvasHeight = imageSize.height + padding * 2
+                        updateAndApplyChanges()
+                    }
+                }
+                .font(.caption)
+                .padding(.top, 4)
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 8)
+            
             // Preview with proper size constraints
             Text("Preview")
                 .font(.subheadline)
@@ -255,26 +304,22 @@ struct BackgroundPicker: View {
     }
     
     /**
-     * Updates the viewModel with temp values and applies background
+     * Updates view model properties and applies changes
      */
     private func updateAndApplyChanges() {
-        // Update the viewModel with temporary values
         viewModel.backgroundType = tempBackgroundType
         viewModel.backgroundColor = tempBackgroundColor
         viewModel.backgroundGradient = tempBackgroundGradient
         viewModel.is3DEffect = tempIs3DEffect
         viewModel.perspective3DDirection = tempPerspective3DDirection
+        viewModel.canvasWidth = tempCanvasWidth
+        viewModel.canvasHeight = tempCanvasHeight
         
         // Apply the background change
-        DispatchQueue.main.async {
-            // Apply the background with a slight delay to ensure UI updates
-            viewModel.applyBackground()
-            
-            // Force UI refresh by toggling state
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                self.refreshPreview.toggle()
-            }
-        }
+        viewModel.applyBackground()
+        
+        // Trigger preview refresh
+        refreshPreview.toggle()
     }
     
     /**
