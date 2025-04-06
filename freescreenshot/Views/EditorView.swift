@@ -19,9 +19,7 @@ struct EditorView: View {
     
     // Editor state
     @State private var isShowingBackgroundPicker = false
-    @State private var isShowingDeviceMockup = false
     @State private var isShowingSaveDialog = false
-    @State private var showExportOptions = false
     
     // Current API compatibility issues with fill(_:style:)
     private let fillClear = Color.clear
@@ -30,14 +28,15 @@ struct EditorView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Toolbar
-            ScrollView(.horizontal, showsIndicators: false) {
-                toolbar
-                    .padding(.horizontal)
-                    .padding(.vertical, 8)
+            // Toolbar - simplified to only show background feature
+            HStack {
+                Spacer()
+                Text("Screenshot Background Tool")
+                    .font(.headline)
+                Spacer()
             }
+            .padding(.vertical, 8)
             .background(Color(NSColor.controlBackgroundColor))
-            .frame(height: 80) // Fix height to ensure toolbar visibility
             
             // Main editor canvas
             ScrollView([.horizontal, .vertical], showsIndicators: true) {
@@ -46,14 +45,51 @@ struct EditorView: View {
                     .padding()
             }
             .background(Color(NSColor.windowBackgroundColor))
+            
+            // Bottom toolbar with background and export buttons
+            HStack(spacing: 16) {
+                // Background button
+                Button {
+                    isShowingBackgroundPicker = true
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: "photo.fill")
+                            .font(.title2)
+                            .frame(width: 30, height: 30)
+                        
+                        Text("Background")
+                            .font(.caption)
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(isShowingBackgroundPicker ? Color.accentColor.opacity(0.2) : Color.clear)
+                    )
+                    .foregroundColor(isShowingBackgroundPicker ? .accentColor : .primary)
+                }
+                .buttonStyle(.plain)
+                
+                Spacer()
+                
+                // Export button
+                Button {
+                    isShowingSaveDialog = true
+                } label: {
+                    Text("Export")
+                        .fontWeight(.medium)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.accentColor)
+                        .foregroundColor(.white)
+                        .cornerRadius(6)
+                }
+            }
+            .padding()
+            .background(Color(NSColor.controlBackgroundColor))
         }
         .sheet(isPresented: $isShowingBackgroundPicker) {
             BackgroundPicker(viewModel: viewModel, isPresented: $isShowingBackgroundPicker)
-        }
-        .sheet(isPresented: $isShowingDeviceMockup) {
-            if let image = viewModel.originalImage {
-                DeviceMockupPicker(isPresented: $isShowingDeviceMockup, screenshot: image, outputImage: $viewModel.image)
-            }
         }
         .fileExporter(
             isPresented: $isShowingSaveDialog,
@@ -68,7 +104,7 @@ struct EditorView: View {
                 print("Error saving: \(error)")
             }
         }
-        .navigationTitle("Screenshot Editor")
+        .navigationTitle("Screenshot Background Tool")
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button("Back") {
@@ -88,9 +124,6 @@ struct EditorView: View {
             
             // Image being edited
             imageLayer
-            
-            // Draw all elements
-            elementsLayer
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(NSColor.windowBackgroundColor))
@@ -116,120 +149,6 @@ struct EditorView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding()
                     .id(image.hashValue) // Force refresh when image changes
-            }
-        }
-    }
-    
-    /**
-     * Elements layer for all editing elements
-     */
-    private var elementsLayer: some View {
-        ForEach(viewModel.elements.indices, id: \.self) { index in
-            ElementView(element: viewModel.elements[index])
-                .opacity(0.99) // Workaround to ensure views update properly
-        }
-    }
-    
-    /**
-     * The toolbar view with editing tools
-     */
-    private var toolbar: some View {
-        HStack(spacing: 16) {
-            // Background button
-            ToolbarButton(
-                title: "Background",
-                icon: "photo.fill",
-                isSelected: isShowingBackgroundPicker
-            ) {
-                isShowingBackgroundPicker = true
-            }
-            
-            // Device mockup button
-            ToolbarButton(
-                title: "Device",
-                icon: "macbook",
-                isSelected: isShowingDeviceMockup
-            ) {
-                isShowingDeviceMockup = true
-            }
-            
-            Spacer()
-            
-            // Export button
-            Button {
-                // Make sure we export the current state of the image
-                isShowingSaveDialog = true
-            } label: {
-                Text("Export")
-                    .fontWeight(.medium)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(Color.accentColor)
-                    .foregroundColor(.white)
-                    .cornerRadius(6)
-            }
-        }
-        .padding(.horizontal)
-    }
-}
-
-/**
- * DragState: Represents the state of a drag gesture
- */
-enum DragState {
-    case changed
-    case ended
-}
-
-/**
- * ToolbarButton: Reusable button for the toolbar
- */
-struct ToolbarButton: View {
-    let title: String
-    let icon: String
-    let isSelected: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.title2)
-                    .frame(width: 30, height: 30)
-                
-                Text(title)
-                    .font(.caption)
-            }
-            .padding(.vertical, 4)
-            .padding(.horizontal, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
-            )
-            .foregroundColor(isSelected ? .accentColor : .primary)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-/**
- * ElementView: Generic view for rendering editable elements
- */
-struct ElementView: View {
-    let element: any EditableElement
-    
-    var body: some View {
-        Group {
-            if let textElement = element as? TextElement {
-                textElement.render()
-            } else if let arrowElement = element as? ArrowElement {
-                arrowElement.render()
-            } else if let highlighterElement = element as? HighlighterElement {
-                highlighterElement.render()
-            } else if let boxShadowElement = element as? BoxShadowElement {
-                boxShadowElement.render()
-            } else if let glassEffectElement = element as? GlassEffectElement {
-                glassEffectElement.render()
             }
         }
     }
