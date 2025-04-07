@@ -135,4 +135,11 @@ SOFTWARE.
 ## Acknowledgments
 
 - Inspired by Jumpshare and other screenshot enhancement tools
-- Built with SwiftUI for a native macOS experience 
+- Built with SwiftUI for a native macOS experience
+
+
+<div style="display: flex; width: 100%; align-items: center;">
+    <a href="https://linkedin.com/in/proSamik"><img src="https://img.shields.io/github/followers/prosamik" alt="Followers" /></a>
+    <a href="https://github.com/prosamik" style="margin-left: auto;"><img src="https://komarev.com/ghpvc/?username=prosamik-freescreenshot&label=Freescreenshot&count_bg=%23109BEF&title_bg=%233B3636&edge_flat=false" alt="Readme count" align="right" /></a>
+</div>
+  
