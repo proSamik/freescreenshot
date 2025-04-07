@@ -42,5 +42,7 @@
 	<string>FreeScreenshot needs to interact with other apps to perform screenshot capture.</string>
 	<key>LSMultipleInstancesProhibited</key>
 	<true/>
+	<key>NSPrefPaneSpecificationKey</key>
+	<string>FreeScreenshot</string>
 </dict>
 </plist> 
