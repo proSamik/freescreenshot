@@ -110,8 +110,67 @@ struct BackgroundPicker: View {
                                             }
                                     }
                                 }
-                                .padding(.horizontal)
+                                .padding(.horizontal, 8)
                             }
+                        }
+                        
+                    case .device:
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Device Type")
+                                .font(.subheadline)
+                            
+                            // Device type selection
+                            Picker("", selection: $viewModel.deviceType) {
+                                ForEach(DeviceType.allCases) { device in
+                                    Text(device.displayName).tag(device)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .onChange(of: viewModel.deviceType) { _ in
+                                updateAndApplyChanges()
+                            }
+                            
+                            // Secondary image selector for MacBook + iPhone option
+                            if viewModel.deviceType == .macbookWithIphone {
+                                Divider()
+                                    .padding(.vertical, 4)
+                                
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("iPhone Screen")
+                                        .font(.subheadline)
+                                    
+                                    Button("Select iPhone Image") {
+                                        selectSecondaryImage()
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    
+                                    if viewModel.secondaryImage != nil {
+                                        HStack {
+                                            Text("Image selected")
+                                                .font(.caption)
+                                                .foregroundColor(.green)
+                                            
+                                            Spacer()
+                                            
+                                            Button("Clear") {
+                                                viewModel.secondaryImage = nil
+                                                updateAndApplyChanges()
+                                            }
+                                            .font(.caption)
+                                        }
+                                    } else {
+                                        Text("No iPhone image selected")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                            
+                            // Note about 3D effect
+                            Text("3D effect is disabled with device mockups")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .padding(.top, 8)
                         }
                         
                     case .image:
@@ -298,8 +357,8 @@ struct BackgroundPicker: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 16)
             }
-            .frame(width: 280)
-            .padding(.horizontal, 8)
+            .frame(width: 400)
+            .padding(.horizontal, 12)
             
             Divider()
             
@@ -313,44 +372,124 @@ struct BackgroundPicker: View {
                 GeometryReader { geo in
                     // Fixed size container for the image preview
                     ZStack {
-                        // Static background that doesn't rotate (if background is applied)
-                        if tempBackgroundType != .none {
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color(NSColor.windowBackgroundColor).opacity(0.5))
-                                .frame(
-                                    // Increased canvas size to accommodate 3D rotation
-                                    width: min(geo.size.width * 0.95, geo.size.height * 0.95),
-                                    height: min(geo.size.width * 0.95, geo.size.height * 0.95)
-                                )
-                        }
-                        
-                        // Image preview with 3D rotation applied only to the image
-                        if let image = viewModel.image {
-                            // Use SwiftUI's built-in 3D rotation for the preview only
-                            Image(nsImage: image)
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .frame(
-                                    // Make image smaller to ensure it stays within canvas when rotated
-                                    width: tempIs3DEffect 
-                                        ? min(geo.size.width * 0.7, geo.size.height * 0.7)
-                                        : min(geo.size.width * 0.8, geo.size.height * 0.8),
-                                    height: tempIs3DEffect 
-                                        ? min(geo.size.width * 0.7, geo.size.height * 0.7) 
-                                        : min(geo.size.width * 0.8, geo.size.height * 0.8)
-                                )
-                                // Apply 3D rotation using SwiftUI's built-in effect
-                                .rotation3DEffect(
-                                    tempIs3DEffect ? getRotationAngle() : .zero,
-                                    axis: tempIs3DEffect ? getRotationAxis() : (x: 0, y: 0, z: 1),
-                                    anchor: getRotationAnchor(),
-                                    perspective: tempIs3DEffect ? 0.2 : 0
-                                )
-                                .shadow(color: .black.opacity(0.3), radius: 15, x: 0, y: 5)
-                                .id(refreshPreview)
+                        // Different preview based on background type
+                        if tempBackgroundType == .device {
+                            // Device mockup preview
+                            if let mockupImage = viewModel.deviceType.mockupImage {
+                                VStack {
+                                    Image(nsImage: mockupImage)
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fit)
+                                        .frame(
+                                            width: min(geo.size.width * 0.9, geo.size.height * 0.9),
+                                            height: min(geo.size.width * 0.9, geo.size.height * 0.9)
+                                        )
+                                        .overlay(
+                                            ZStack {
+                                                // Show the actual screenshot placement if it exists
+                                                if let originalImage = viewModel.originalImage {
+                                                    let screenArea = viewModel.deviceType.screenArea
+                                                    GeometryReader { deviceGeo in
+                                                        // Calculate actual pixel coordinates for the screen area
+                                                        let screenRect = CGRect(
+                                                            x: deviceGeo.size.width * screenArea.origin.x,
+                                                            y: deviceGeo.size.height * screenArea.origin.y,
+                                                            width: deviceGeo.size.width * screenArea.size.width,
+                                                            height: deviceGeo.size.height * screenArea.size.height
+                                                        )
+                                                        
+                                                        // Place screenshot in the screen area
+                                                        Image(nsImage: originalImage)
+                                                            .resizable()
+                                                            .aspectRatio(contentMode: .fill)
+                                                            .frame(width: screenRect.width, height: screenRect.height)
+                                                            .clipShape(
+                                                                RoundedRectangle(
+                                                                    cornerRadius: tempCornerRadius > 0 ? tempCornerRadius : 0
+                                                                )
+                                                            )
+                                                            .position(
+                                                                x: screenRect.midX,
+                                                                y: screenRect.midY
+                                                            )
+                                                        
+                                                        // For MacBook + iPhone mockup, show secondary image if available
+                                                        if viewModel.deviceType == .macbookWithIphone,
+                                                           let secondaryScreenArea = viewModel.deviceType.secondaryScreenArea,
+                                                           let secondaryImage = viewModel.secondaryImage {
+                                                            
+                                                            let secondaryScreenRect = CGRect(
+                                                                x: deviceGeo.size.width * secondaryScreenArea.origin.x,
+                                                                y: deviceGeo.size.height * secondaryScreenArea.origin.y,
+                                                                width: deviceGeo.size.width * secondaryScreenArea.size.width,
+                                                                height: deviceGeo.size.height * secondaryScreenArea.size.height
+                                                            )
+                                                            
+                                                            Image(nsImage: secondaryImage)
+                                                                .resizable()
+                                                                .aspectRatio(contentMode: .fill)
+                                                                .frame(width: secondaryScreenRect.width, height: secondaryScreenRect.height)
+                                                                .clipShape(
+                                                                    RoundedRectangle(
+                                                                        cornerRadius: tempCornerRadius > 0 ? tempCornerRadius/2 : 0
+                                                                    )
+                                                                )
+                                                                .position(
+                                                                    x: secondaryScreenRect.midX,
+                                                                    y: secondaryScreenRect.midY
+                                                                )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        )
+                                        .id(refreshPreview)
+                                }
+                            } else {
+                                Text("Device mockup image not available")
+                                    .foregroundColor(.secondary)
+                            }
                         } else {
-                            Text("No preview available")
-                                .foregroundColor(.secondary)
+                            // Standard background preview for non-device types
+                            // Static background that doesn't rotate (if background is applied)
+                            if tempBackgroundType != .none {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color(NSColor.windowBackgroundColor).opacity(0.5))
+                                    .frame(
+                                        // Increased canvas size to accommodate 3D rotation
+                                        width: min(geo.size.width * 0.95, geo.size.height * 0.95),
+                                        height: min(geo.size.width * 0.95, geo.size.height * 0.95)
+                                    )
+                            }
+                            
+                            // Image preview with 3D rotation applied only to the image
+                            if let image = viewModel.image {
+                                // Use SwiftUI's built-in 3D rotation for the preview only
+                                Image(nsImage: image)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(
+                                        // Make image smaller to ensure it stays within canvas when rotated
+                                        width: tempIs3DEffect 
+                                            ? min(geo.size.width * 0.7, geo.size.height * 0.7)
+                                            : min(geo.size.width * 0.8, geo.size.height * 0.8),
+                                        height: tempIs3DEffect 
+                                            ? min(geo.size.width * 0.7, geo.size.height * 0.7) 
+                                            : min(geo.size.width * 0.8, geo.size.height * 0.8)
+                                    )
+                                    // Apply 3D rotation using SwiftUI's built-in effect - only for non-device backgrounds
+                                    .rotation3DEffect(
+                                        tempIs3DEffect ? getRotationAngle() : .zero,
+                                        axis: tempIs3DEffect ? getRotationAxis() : (x: 0, y: 0, z: 1),
+                                        anchor: getRotationAnchor(),
+                                        perspective: tempIs3DEffect ? 0.2 : 0
+                                    )
+                                    .shadow(color: .black.opacity(0.3), radius: 15, x: 0, y: 5)
+                                    .id(refreshPreview)
+                            } else {
+                                Text("No preview available")
+                                    .foregroundColor(.secondary)
+                            }
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -387,13 +526,45 @@ struct BackgroundPicker: View {
     }
     
     /**
+     * Opens a file picker to select the secondary image for iPhone in the MacBook+iPhone mockup
+     */
+    private func selectSecondaryImage() {
+        let openPanel = NSOpenPanel()
+        openPanel.allowsMultipleSelection = false
+        openPanel.canChooseDirectories = false
+        openPanel.canChooseFiles = true
+        openPanel.allowedContentTypes = [.png, .jpeg, .jpg, .tiff, .gif, .bmp]
+        openPanel.title = "Select iPhone Screenshot"
+        openPanel.message = "Choose an image for the iPhone screen"
+        
+        if openPanel.runModal() == .OK, let url = openPanel.url {
+            if let image = NSImage(contentsOf: url) {
+                viewModel.secondaryImage = image
+                updateAndApplyChanges()
+            }
+        }
+    }
+    
+    /**
      * Updates view model properties and applies changes
      */
     private func updateAndApplyChanges() {
         viewModel.backgroundType = tempBackgroundType
         viewModel.backgroundColor = tempBackgroundColor
         viewModel.backgroundGradient = tempBackgroundGradient
-        viewModel.is3DEffect = tempIs3DEffect
+        
+        // Handle 3D effect state - disable for device mockups
+        if tempBackgroundType == .device {
+            if tempIs3DEffect {
+                viewModel.previousIs3DEffect = tempIs3DEffect
+                tempIs3DEffect = false
+            }
+            viewModel.is3DEffect = false
+        } else {
+            // For non-device backgrounds, use the UI toggle state
+            viewModel.is3DEffect = tempIs3DEffect
+        }
+        
         viewModel.perspective3DDirection = tempPerspective3DDirection
         viewModel.aspectRatio = tempAspectRatio
         viewModel.imagePadding = tempImagePadding
