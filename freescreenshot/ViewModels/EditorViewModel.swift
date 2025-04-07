@@ -269,21 +269,34 @@ class EditorViewModel: ObservableObject {
             height: rect.size.height * screenArea.size.height
         )
         
-        // Draw the screenshot in the screen area with corner radius if specified
+        // Create a clipping path for the screenshot with corner radius if specified
         if cornerRadius > 0 {
             let path = NSBezierPath(roundedRect: screenRect, xRadius: cornerRadius, yRadius: cornerRadius)
             NSGraphicsContext.current?.saveGraphicsState()
             path.setClip()
+            
+            // Fill with a white background first to avoid transparency
+            NSColor.white.setFill()
+            path.fill()
+            
+            // Draw the screenshot in the screen area, maintaining aspect ratio but filling the area
             originalImage.draw(in: screenRect, from: .zero, operation: .copy, fraction: 1.0)
             NSGraphicsContext.current?.restoreGraphicsState()
         } else {
+            // Fill with a white background first to avoid transparency
+            NSColor.white.setFill()
+            screenRect.fill()
+            
+            // Draw the screenshot in the screen area
             originalImage.draw(in: screenRect, from: .zero, operation: .copy, fraction: 1.0)
         }
         
         // For macbook + iPhone mockup, draw the secondary screenshot if available
         if deviceType == .macbookWithIphone, 
-           let secondaryScreenArea = deviceType.secondaryScreenArea,
-           let secondaryImage = secondaryImage {
+           let secondaryScreenArea = deviceType.secondaryScreenArea {
+            
+            // Use secondary image if available, otherwise use the primary image
+            let imageForIPhone = secondaryImage ?? originalImage
             
             // Convert secondary screen coordinates to pixel coordinates
             let secondaryScreenRect = CGRect(
@@ -298,10 +311,19 @@ class EditorViewModel: ObservableObject {
                 let path = NSBezierPath(roundedRect: secondaryScreenRect, xRadius: cornerRadius/2, yRadius: cornerRadius/2)
                 NSGraphicsContext.current?.saveGraphicsState()
                 path.setClip()
-                secondaryImage.draw(in: secondaryScreenRect, from: .zero, operation: .copy, fraction: 1.0)
+                
+                // Fill with a white background first to avoid transparency
+                NSColor.white.setFill()
+                path.fill()
+                
+                imageForIPhone.draw(in: secondaryScreenRect, from: .zero, operation: .copy, fraction: 1.0)
                 NSGraphicsContext.current?.restoreGraphicsState()
             } else {
-                secondaryImage.draw(in: secondaryScreenRect, from: .zero, operation: .copy, fraction: 1.0)
+                // Fill with a white background first to avoid transparency
+                NSColor.white.setFill()
+                secondaryScreenRect.fill()
+                
+                imageForIPhone.draw(in: secondaryScreenRect, from: .zero, operation: .copy, fraction: 1.0)
             }
         }
     }

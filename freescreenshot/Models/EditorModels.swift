@@ -133,12 +133,14 @@ enum DeviceType: String, CaseIterable, Identifiable {
     var screenArea: CGRect {
         switch self {
         case .iphone:
-            return CGRect(x: 0.028, y: 0.054, width: 0.945, height: 0.892)
+            // Updated coordinates based on the iPhone mockup image
+            return CGRect(x: 0.048, y: 0.115, width: 0.905, height: 0.77)
         case .macbook:
-            return CGRect(x: 0.134, y: 0.116, width: 0.732, height: 0.498)
+            // Updated coordinates based on the MacBook mockup image
+            return CGRect(x: 0.168, y: 0.192, width: 0.664, height: 0.419)
         case .macbookWithIphone:
             // This is the MacBook screen area within the combo mockup
-            return CGRect(x: 0.13, y: 0.14, width: 0.69, height: 0.45)
+            return CGRect(x: 0.168, y: 0.192, width: 0.664, height: 0.419)
         }
     }
     
@@ -148,7 +150,8 @@ enum DeviceType: String, CaseIterable, Identifiable {
     var secondaryScreenArea: CGRect? {
         switch self {
         case .macbookWithIphone:
-            return CGRect(x: 0.83, y: 0.38, width: 0.12, height: 0.25)
+            // Updated iPhone screen position in the combo mockup
+            return CGRect(x: 0.835, y: 0.35, width: 0.11, height: 0.23)
         default:
             return nil
         }
