@@ -4,7 +4,7 @@ FreeScreenshot is a macOS application that transforms dull screenshots into stun
 
 Demo Video-
 
-https://youtu.be/oOLXdRLYA24
+[Demo](https://youtu.be/oOLXdRLYA24)
 
 ## Features
 
