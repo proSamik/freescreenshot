@@ -25,6 +25,11 @@ class EditorViewModel: ObservableObject {
     @Published var imagePadding: CGFloat = 20 // Percentage padding around the image (0-50)
     @Published var cornerRadius: CGFloat = 0 // Corner radius for the screenshot (0-50)
     
+    // Device mockup properties
+    @Published var deviceType: DeviceType = .macbook
+    @Published var secondaryImage: NSImage? // For MacBook + iPhone mockup
+    @Published var previousIs3DEffect: Bool = false // Store previous 3D setting when switching to device mode
+    
     // Editor state
     @Published var currentTool: EditingTool = .select
     @Published var arrowStyle: ArrowStyle = .straight
@@ -100,10 +105,20 @@ class EditorViewModel: ObservableObject {
     }
     
     /**
-     * Applies the selected background type to the image
+     * Applies the selected background to the image
      */
     func applyBackground() {
         guard let originalImage = originalImage else { return }
+        
+        // If device mockup is selected, disable 3D effect
+        if backgroundType == .device && is3DEffect {
+            previousIs3DEffect = is3DEffect
+            is3DEffect = false
+        } else if backgroundType != .device && !is3DEffect && previousIs3DEffect {
+            // Restore previous 3D setting when switching back from device
+            is3DEffect = previousIs3DEffect
+            previousIs3DEffect = false
+        }
         
         // Original image dimensions
         let imageSize = originalImage.size
@@ -165,56 +180,130 @@ class EditorViewModel: ObservableObject {
             }
             
         case .image:
-            // Draw background image scaled to fill the background
+            // Draw image background if available
             if let bgImage = backgroundImage {
                 bgImage.draw(in: backgroundRect, from: .zero, operation: .copy, fraction: 1.0)
+            } else {
+                // Fallback to white background if no image is set
+                NSColor.white.setFill()
+                NSRect(origin: .zero, size: resultSize).fill()
             }
             
+        case .device:
+            // Handle device mockup background
+            applyDeviceMockup(in: backgroundRect)
+            
         case .none:
-            // No background, just white canvas
-            NSColor.white.setFill()
-            NSRect(origin: .zero, size: resultSize).fill()
+            // Just leave the white background
+            break
         }
         
-        // Calculate where to draw the original image (centered and with padding)
-        let imageRatio = imageSize.width / imageSize.height
-        let canvasRatio = resultSize.width / resultSize.height
-        
-        // Calculate available space after padding
-        let paddingFactor = min(max(imagePadding, 0), 50) / 100 // Convert percentage to factor (0-0.5)
-        let availableWidth = resultSize.width * (1 - paddingFactor * 2)
-        let availableHeight = resultSize.height * (1 - paddingFactor * 2)
-        
-        var drawingSize = imageSize
-        var drawingOrigin = CGPoint.zero
-        
-        if imageRatio > canvasRatio {
-            // Image is wider compared to canvas, fit by width
-            drawingSize.width = availableWidth
-            drawingSize.height = drawingSize.width / imageRatio
-        } else {
-            // Image is taller compared to canvas, fit by height
-            drawingSize.height = availableHeight
-            drawingSize.width = drawingSize.height * imageRatio
+        // Only draw the screenshot if we're not in device mockup mode
+        // (device mockup handles drawing the screenshot itself)
+        if backgroundType != .device {
+            // Calculate where to draw the original image (centered and with padding)
+            let imageRatio = imageSize.width / imageSize.height
+            let canvasRatio = resultSize.width / resultSize.height
+            
+            // Calculate available space after padding
+            let paddingFactor = min(max(imagePadding, 0), 50) / 100 // Convert percentage to factor (0-0.5)
+            let availableWidth = resultSize.width * (1 - paddingFactor * 2)
+            let availableHeight = resultSize.height * (1 - paddingFactor * 2)
+            
+            var drawingSize = imageSize
+            var drawingOrigin = CGPoint.zero
+            
+            if imageRatio > canvasRatio {
+                // Image is wider compared to canvas, fit by width
+                drawingSize.width = availableWidth
+                drawingSize.height = drawingSize.width / imageRatio
+            } else {
+                // Image is taller compared to canvas, fit by height
+                drawingSize.height = availableHeight
+                drawingSize.width = drawingSize.height * imageRatio
+            }
+            
+            // Center the image on the canvas
+            drawingOrigin.x = (resultSize.width - drawingSize.width) / 2
+            drawingOrigin.y = (resultSize.height - drawingSize.height) / 2
+            
+            let imageRect = CGRect(origin: drawingOrigin, size: drawingSize)
+            
+            // Important: We don't apply 3D effects here - they'll be handled by SwiftUI
+            // Only draw the image with corner radius if needed
+            drawImageWithCornerRadius(
+                originalImage,
+                in: imageRect,
+                radius: cornerRadius
+            )
         }
-        
-        // Center the image on the canvas
-        drawingOrigin.x = (resultSize.width - drawingSize.width) / 2
-        drawingOrigin.y = (resultSize.height - drawingSize.height) / 2
-        
-        let imageRect = CGRect(origin: drawingOrigin, size: drawingSize)
-        
-        // Important: We don't apply 3D effects here - they'll be handled by SwiftUI
-        // Only draw the image with corner radius if needed
-        drawImageWithCornerRadius(
-            originalImage,
-            in: imageRect,
-            radius: cornerRadius
-        )
         
         resultImage.unlockFocus()
         self.image = resultImage
         objectWillChange.send()
+    }
+    
+    /**
+     * Applies device mockup with the screenshot(s) in the correct position
+     */
+    private func applyDeviceMockup(in rect: NSRect) {
+        // Load the device mockup image
+        guard let mockupImage = deviceType.mockupImage else {
+            print("Error loading device mockup image")
+            return
+        }
+        
+        // Draw the mockup as the background, filling the entire area
+        mockupImage.draw(in: rect, from: .zero, operation: .copy, fraction: 1.0)
+        
+        guard let originalImage = originalImage else { return }
+        
+        // Get the screen area within the mockup (in normalized coordinates)
+        let screenArea = deviceType.screenArea
+        
+        // Convert normalized coordinates to actual pixel coordinates
+        let screenRect = CGRect(
+            x: rect.origin.x + (rect.size.width * screenArea.origin.x),
+            y: rect.origin.y + (rect.size.height * screenArea.origin.y),
+            width: rect.size.width * screenArea.size.width,
+            height: rect.size.height * screenArea.size.height
+        )
+        
+        // Draw the screenshot in the screen area with corner radius if specified
+        if cornerRadius > 0 {
+            let path = NSBezierPath(roundedRect: screenRect, xRadius: cornerRadius, yRadius: cornerRadius)
+            NSGraphicsContext.current?.saveGraphicsState()
+            path.setClip()
+            originalImage.draw(in: screenRect, from: .zero, operation: .copy, fraction: 1.0)
+            NSGraphicsContext.current?.restoreGraphicsState()
+        } else {
+            originalImage.draw(in: screenRect, from: .zero, operation: .copy, fraction: 1.0)
+        }
+        
+        // For macbook + iPhone mockup, draw the secondary screenshot if available
+        if deviceType == .macbookWithIphone, 
+           let secondaryScreenArea = deviceType.secondaryScreenArea,
+           let secondaryImage = secondaryImage {
+            
+            // Convert secondary screen coordinates to pixel coordinates
+            let secondaryScreenRect = CGRect(
+                x: rect.origin.x + (rect.size.width * secondaryScreenArea.origin.x),
+                y: rect.origin.y + (rect.size.height * secondaryScreenArea.origin.y),
+                width: rect.size.width * secondaryScreenArea.size.width,
+                height: rect.size.height * secondaryScreenArea.size.height
+            )
+            
+            // Draw the secondary image with corner radius if specified
+            if cornerRadius > 0 {
+                let path = NSBezierPath(roundedRect: secondaryScreenRect, xRadius: cornerRadius/2, yRadius: cornerRadius/2)
+                NSGraphicsContext.current?.saveGraphicsState()
+                path.setClip()
+                secondaryImage.draw(in: secondaryScreenRect, from: .zero, operation: .copy, fraction: 1.0)
+                NSGraphicsContext.current?.restoreGraphicsState()
+            } else {
+                secondaryImage.draw(in: secondaryScreenRect, from: .zero, operation: .copy, fraction: 1.0)
+            }
+        }
     }
     
     /**
@@ -352,6 +441,10 @@ class EditorViewModel: ObservableObject {
                             respectFlipped: true,
                             hints: [NSImageRep.HintKey.interpolation: NSNumber(value: NSImageInterpolation.high.rawValue)])
             }
+            
+        case .device:
+            // Device mockups are handled separately
+            break
             
         case .none:
             // White background
@@ -575,6 +668,10 @@ class EditorViewModel: ObservableObject {
                 bgImage.draw(in: rect, from: .zero, operation: .copy, fraction: 1.0)
             }
             
+        case .device:
+            // Device mockups are handled separately
+            break
+            
         case .none:
             // No background
             break
@@ -620,7 +717,6 @@ class EditorViewModel: ObservableObject {
         // If there's a background, be more conservative with trimming
         if backgroundType != .none {
             // Just add a small margin around the image rather than aggressively trimming
-            let margin = 20 // Fixed margin in pixels
             return image
         }
         
