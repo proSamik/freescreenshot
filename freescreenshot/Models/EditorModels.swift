@@ -68,7 +68,6 @@ enum BackgroundType: String, CaseIterable, Identifiable {
     case solid
     case gradient
     case image
-    case device
     case none
     
     var id: String { self.rawValue }
@@ -81,79 +80,7 @@ enum BackgroundType: String, CaseIterable, Identifiable {
         case .solid: return "Solid Color"
         case .gradient: return "Gradient"
         case .image: return "Image"
-        case .device: return "Device Mockup"
         case .none: return "None"
-        }
-    }
-}
-
-/**
- * DeviceType: Represents the device mockup types
- */
-enum DeviceType: String, CaseIterable, Identifiable {
-    case iphone
-    case macbook
-    case macbookWithIphone
-    
-    var id: String { self.rawValue }
-    
-    /**
-     * Returns the display name for the device type
-     */
-    var displayName: String {
-        switch self {
-        case .iphone: return "iPhone"
-        case .macbook: return "MacBook"
-        case .macbookWithIphone: return "MacBook + iPhone"
-        }
-    }
-    
-    /**
-     * Returns the path to the device mockup image
-     */
-    var imagePath: String {
-        switch self {
-        case .iphone: return "DeviceMockups/iphone"
-        case .macbook: return "DeviceMockups/macbook"
-        case .macbookWithIphone: return "DeviceMockups/macbookwithiphone"
-        }
-    }
-    
-    /**
-     * Returns the mockup image from the app bundle
-     */
-    var mockupImage: NSImage? {
-        // Simple, reliable approach that works with the app bundle
-        return NSImage(named: self.rawValue)
-    }
-    
-    /**
-     * Returns the screen content area rectangle within the mockup image (normalized 0-1 coordinates)
-     */
-    var screenArea: CGRect {
-        switch self {
-        case .iphone:
-            // Updated coordinates based on the iPhone mockup image
-            return CGRect(x: 0.048, y: 0.115, width: 0.905, height: 0.77)
-        case .macbook:
-            // Updated coordinates based on the MacBook mockup image
-            return CGRect(x: 0.168, y: 0.192, width: 0.664, height: 0.419)
-        case .macbookWithIphone:
-            // This is the MacBook screen area within the combo mockup
-            return CGRect(x: 0.168, y: 0.192, width: 0.664, height: 0.419)
-        }
-    }
-    
-    /**
-     * Returns the secondary screen area for the macbookWithIphone case (iPhone screen)
-     */
-    var secondaryScreenArea: CGRect? {
-        switch self {
-        case .macbookWithIphone:
-            // Updated iPhone screen position in the combo mockup
-            return CGRect(x: 0.835, y: 0.35, width: 0.11, height: 0.23)
-        default:
-            return nil
         }
     }
 }

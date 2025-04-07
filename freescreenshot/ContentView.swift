@@ -16,6 +16,9 @@ struct ContentView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var editorViewModel = EditorViewModel()
     @State private var isDropTargeted = false
+    @State private var isScreenCaptureInProgress = false
+    @State private var isBackgroundPickerPresented = false
+    @State private var isDragOver = false
     
     var body: some View {
         ZStack {
@@ -146,6 +149,36 @@ struct ContentView: View {
                         }
                     }
                 }
+            }
+        }
+    }
+    
+    /**
+     * Initiates the screenshot process
+     */
+    private func initiateScreenshot() {
+        isScreenCaptureInProgress = true
+        
+        // Use the appState to initiate screen capture
+        appState.initiateScreenCapture()
+        isScreenCaptureInProgress = false
+    }
+    
+    /**
+     * Saves the screenshot to disk
+     */
+    private func saveScreenshot() {
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.png, .jpeg]
+        savePanel.canCreateDirectories = true
+        savePanel.isExtensionHidden = false
+        savePanel.title = "Save Screenshot"
+        savePanel.message = "Choose a location to save your screenshot"
+        savePanel.nameFieldLabel = "File name:"
+        
+        if savePanel.runModal() == .OK {
+            if let url = savePanel.url {
+                self.editorViewModel.saveImage(to: url)
             }
         }
     }

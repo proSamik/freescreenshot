@@ -25,11 +25,6 @@ class EditorViewModel: ObservableObject {
     @Published var imagePadding: CGFloat = 20 // Percentage padding around the image (0-50)
     @Published var cornerRadius: CGFloat = 0 // Corner radius for the screenshot (0-50)
     
-    // Device mockup properties
-    @Published var deviceType: DeviceType = .macbook
-    @Published var secondaryImage: NSImage? // For MacBook + iPhone mockup
-    @Published var previousIs3DEffect: Bool = false // Store previous 3D setting when switching to device mode
-    
     // Editor state
     @Published var currentTool: EditingTool = .select
     @Published var arrowStyle: ArrowStyle = .straight
@@ -110,16 +105,6 @@ class EditorViewModel: ObservableObject {
     func applyBackground() {
         guard let originalImage = originalImage else { return }
         
-        // If device mockup is selected, disable 3D effect
-        if backgroundType == .device && is3DEffect {
-            previousIs3DEffect = is3DEffect
-            is3DEffect = false
-        } else if backgroundType != .device && !is3DEffect && previousIs3DEffect {
-            // Restore previous 3D setting when switching back from device
-            is3DEffect = previousIs3DEffect
-            previousIs3DEffect = false
-        }
-        
         // Original image dimensions
         let imageSize = originalImage.size
         let aspectRatio = self.aspectRatio.ratio
@@ -189,18 +174,14 @@ class EditorViewModel: ObservableObject {
                 NSRect(origin: .zero, size: resultSize).fill()
             }
             
-        case .device:
-            // Handle device mockup background
-            applyDeviceMockup(in: backgroundRect)
-            
         case .none:
             // Just leave the white background
             break
         }
         
         // Only draw the screenshot if we're not in device mockup mode
-        // (device mockup handles drawing the screenshot itself)
-        if backgroundType != .device {
+// (device mockup handles drawing the screenshot itself)
+        
             // Calculate where to draw the original image (centered and with padding)
             let imageRatio = imageSize.width / imageSize.height
             let canvasRatio = resultSize.width / resultSize.height
@@ -236,96 +217,10 @@ class EditorViewModel: ObservableObject {
                 in: imageRect,
                 radius: cornerRadius
             )
-        }
         
         resultImage.unlockFocus()
         self.image = resultImage
         objectWillChange.send()
-    }
-    
-    /**
-     * Applies device mockup with the screenshot(s) in the correct position
-     */
-    private func applyDeviceMockup(in rect: NSRect) {
-        // Load the device mockup image
-        guard let mockupImage = deviceType.mockupImage else {
-            print("Error loading device mockup image")
-            return
-        }
-        
-        // Draw the mockup as the background, filling the entire area
-        mockupImage.draw(in: rect, from: .zero, operation: .copy, fraction: 1.0)
-        
-        guard let originalImage = originalImage else { return }
-        
-        // Get the screen area within the mockup (in normalized coordinates)
-        let screenArea = deviceType.screenArea
-        
-        // Convert normalized coordinates to actual pixel coordinates
-        let screenRect = CGRect(
-            x: rect.origin.x + (rect.size.width * screenArea.origin.x),
-            y: rect.origin.y + (rect.size.height * screenArea.origin.y),
-            width: rect.size.width * screenArea.size.width,
-            height: rect.size.height * screenArea.size.height
-        )
-        
-        // Create a clipping path for the screenshot with corner radius if specified
-        if cornerRadius > 0 {
-            let path = NSBezierPath(roundedRect: screenRect, xRadius: cornerRadius, yRadius: cornerRadius)
-            NSGraphicsContext.current?.saveGraphicsState()
-            path.setClip()
-            
-            // Fill with a white background first to avoid transparency
-            NSColor.white.setFill()
-            path.fill()
-            
-            // Draw the screenshot in the screen area, maintaining aspect ratio but filling the area
-            originalImage.draw(in: screenRect, from: .zero, operation: .copy, fraction: 1.0)
-            NSGraphicsContext.current?.restoreGraphicsState()
-        } else {
-            // Fill with a white background first to avoid transparency
-            NSColor.white.setFill()
-            screenRect.fill()
-            
-            // Draw the screenshot in the screen area
-            originalImage.draw(in: screenRect, from: .zero, operation: .copy, fraction: 1.0)
-        }
-        
-        // For macbook + iPhone mockup, draw the secondary screenshot if available
-        if deviceType == .macbookWithIphone, 
-           let secondaryScreenArea = deviceType.secondaryScreenArea {
-            
-            // Use secondary image if available, otherwise use the primary image
-            let imageForIPhone = secondaryImage ?? originalImage
-            
-            // Convert secondary screen coordinates to pixel coordinates
-            let secondaryScreenRect = CGRect(
-                x: rect.origin.x + (rect.size.width * secondaryScreenArea.origin.x),
-                y: rect.origin.y + (rect.size.height * secondaryScreenArea.origin.y),
-                width: rect.size.width * secondaryScreenArea.size.width,
-                height: rect.size.height * secondaryScreenArea.size.height
-            )
-            
-            // Draw the secondary image with corner radius if specified
-            if cornerRadius > 0 {
-                let path = NSBezierPath(roundedRect: secondaryScreenRect, xRadius: cornerRadius/2, yRadius: cornerRadius/2)
-                NSGraphicsContext.current?.saveGraphicsState()
-                path.setClip()
-                
-                // Fill with a white background first to avoid transparency
-                NSColor.white.setFill()
-                path.fill()
-                
-                imageForIPhone.draw(in: secondaryScreenRect, from: .zero, operation: .copy, fraction: 1.0)
-                NSGraphicsContext.current?.restoreGraphicsState()
-            } else {
-                // Fill with a white background first to avoid transparency
-                NSColor.white.setFill()
-                secondaryScreenRect.fill()
-                
-                imageForIPhone.draw(in: secondaryScreenRect, from: .zero, operation: .copy, fraction: 1.0)
-            }
-        }
     }
     
     /**
@@ -357,33 +252,6 @@ class EditorViewModel: ObservableObject {
             // Draw without rounded corners
             image.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1.0)
         }
-    }
-    
-    /**
-     * Creates a new image with corner radius applied
-     */
-    private func applyCornerRadius(to image: NSImage, radius: CGFloat) -> NSImage {
-        let size = image.size
-        let scaledRadius = min(radius, min(size.width, size.height) / 2)
-        
-        // Create a new image with the same size
-        let result = NSImage(size: size)
-        
-        result.lockFocus()
-        
-        // Create a rounded rectangle path
-        let path = NSBezierPath(roundedRect: NSRect(origin: .zero, size: size), 
-                               xRadius: scaledRadius, yRadius: scaledRadius)
-        
-        // Set the path as clipping path
-        path.setClip()
-        
-        // Draw the image within the clipping path
-        image.draw(in: NSRect(origin: .zero, size: size), from: .zero, operation: .sourceOver, fraction: 1.0)
-        
-        result.unlockFocus()
-        
-        return result
     }
     
     /**
@@ -463,10 +331,6 @@ class EditorViewModel: ObservableObject {
                             respectFlipped: true,
                             hints: [NSImageRep.HintKey.interpolation: NSNumber(value: NSImageInterpolation.high.rawValue)])
             }
-            
-        case .device:
-            // Device mockups are handled separately
-            break
             
         case .none:
             // White background
@@ -654,6 +518,52 @@ class EditorViewModel: ObservableObject {
     }
     
     /**
+     * Saves the image to a file
+     */
+    func saveImage(to url: URL) {
+        guard let image = exportImage(),
+              let data = ImageUtilities.imageToData(image) else {
+            return
+        }
+        
+        try? data.write(to: url)
+    }
+    
+    /**
+     * Selects an element by ID
+     */
+    func selectElement(id: UUID?) {
+        selectedElementId = id
+    }
+    
+    /**
+     * Creates a new image with corner radius applied
+     */
+    private func applyCornerRadius(to image: NSImage, radius: CGFloat) -> NSImage {
+        let size = image.size
+        let scaledRadius = min(radius, min(size.width, size.height) / 2)
+        
+        // Create a new image with the same size
+        let result = NSImage(size: size)
+        
+        result.lockFocus()
+        
+        // Create a rounded rectangle path
+        let path = NSBezierPath(roundedRect: NSRect(origin: .zero, size: size), 
+                               xRadius: scaledRadius, yRadius: scaledRadius)
+        
+        // Set the path as clipping path
+        path.setClip()
+        
+        // Draw the image within the clipping path
+        image.draw(in: NSRect(origin: .zero, size: size), from: .zero, operation: .sourceOver, fraction: 1.0)
+        
+        result.unlockFocus()
+        
+        return result
+    }
+    
+    /**
      * Draw background in the specified rectangle
      */
     private func drawBackground(in rect: NSRect) {
@@ -690,10 +600,6 @@ class EditorViewModel: ObservableObject {
                 bgImage.draw(in: rect, from: .zero, operation: .copy, fraction: 1.0)
             }
             
-        case .device:
-            // Device mockups are handled separately
-            break
-            
         case .none:
             // No background
             break
@@ -721,90 +627,6 @@ class EditorViewModel: ObservableObject {
         case .bottomRight:
             return (rotationX: -angleInRadians, rotationY: angleInRadians, shadowOffsetX: 20, shadowOffsetY: -20)
         }
-    }
-    
-    /**
-     * Trims excess transparent padding around an image while preserving background
-     */
-    private func trimTransparentPadding(_ image: NSImage) -> NSImage {
-        // For images with backgrounds, we should be more conservative with trimming
-        // to avoid cutting off the background color
-        guard let bitmap = image.representations.first as? NSBitmapImageRep else {
-            return image
-        }
-        
-        let width = bitmap.pixelsWide
-        let height = bitmap.pixelsHigh
-        
-        // If there's a background, be more conservative with trimming
-        if backgroundType != .none {
-            // Just add a small margin around the image rather than aggressively trimming
-            return image
-        }
-        
-        // For no background, we can still trim excess transparent areas
-        var minX = width
-        var minY = height
-        var maxX = 0
-        var maxY = 0
-        
-        // Find bounds of non-transparent pixels
-        for y in 0..<height {
-            for x in 0..<width {
-                let alpha = bitmap.colorAt(x: x, y: y)?.alphaComponent ?? 0
-                if alpha > 0.05 { // Consider anything barely visible
-                    minX = min(minX, x)
-                    minY = min(minY, y)
-                    maxX = max(maxX, x)
-                    maxY = max(maxY, y)
-                }
-            }
-        }
-        
-        // Add small padding
-        let padding = 40 // Increased padding to avoid cutting too close
-        minX = max(0, minX - padding)
-        minY = max(0, minY - padding)
-        maxX = min(width - 1, maxX + padding)
-        maxY = min(height - 1, maxY + padding)
-        
-        // If no non-transparent pixels found, return original
-        if minX >= maxX || minY >= maxY {
-            return image
-        }
-        
-        let croppedWidth = maxX - minX + 1
-        let croppedHeight = maxY - minY + 1
-        
-        guard let cgImage = bitmap.cgImage else {
-            return image
-        }
-        
-        // Crop the image
-        if let croppedCGImage = cgImage.cropping(to: CGRect(x: minX, y: height - maxY - 1, width: croppedWidth, height: croppedHeight)) {
-            return NSImage(cgImage: croppedCGImage, size: NSSize(width: croppedWidth, height: croppedHeight))
-        }
-        
-        return image
-    }
-    
-    /**
-     * Saves the image to a file
-     */
-    func saveImage(to url: URL) {
-        guard let image = exportImage(),
-              let data = ImageUtilities.imageToData(image) else {
-            return
-        }
-        
-        try? data.write(to: url)
-    }
-    
-    /**
-     * Selects an element by ID
-     */
-    func selectElement(id: UUID?) {
-        selectedElementId = id
     }
 }
 

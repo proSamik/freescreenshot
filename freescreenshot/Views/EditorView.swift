@@ -180,10 +180,10 @@ struct EditorView: View {
                             )
                             // Apply 3D rotation effect only to the image and only if not in device mockup mode
                             .rotation3DEffect(
-                                viewModel.is3DEffect && viewModel.backgroundType != .device ? get3DRotationAngle() : .zero,
-                                axis: viewModel.is3DEffect && viewModel.backgroundType != .device ? get3DRotationAxis() : (x: 0, y: 0, z: 1),
+                                viewModel.is3DEffect ? get3DRotationAngle() : .zero,
+                                axis: viewModel.is3DEffect ? get3DRotationAxis() : (x: 0, y: 0, z: 1),
                                 anchor: get3DRotationAnchor(),
-                                perspective: viewModel.is3DEffect && viewModel.backgroundType != .device ? 0.2 : 0
+                                perspective: viewModel.is3DEffect ? 0.2 : 0
                             )
                             .shadow(color: Color.black.opacity(0.3), radius: 15, x: 0, y: 5)
                             .id(image.hashValue) // Force refresh when image changes
