@@ -69,9 +69,16 @@ cd /path/to/freescreenshot
 xcodebuild -configuration Release -scheme freescreenshot
 ```
 
-3. Create the DMG file with drag-to-install behavior:
+3. Create a clean DMG with only the app and Applications folder shortcut:
 
 ```bash
+# Create temporary directory for DMG contents
+mkdir -p /tmp/FreeScreenshotCleanDMG
+
+# Copy the built app to the temporary directory
+cp -R /path/to/DerivedData/freescreenshot-xxx/Build/Products/Release/freescreenshot.app /tmp/FreeScreenshotCleanDMG/
+
+# Create the DMG file
 create-dmg \
   --volname "FreeScreenshot" \
   --volicon "/path/to/DerivedData/freescreenshot-xxx/Build/Products/Release/freescreenshot.app/Contents/Resources/AppIcon.icns" \
@@ -82,7 +89,7 @@ create-dmg \
   --hide-extension "freescreenshot.app" \
   --app-drop-link 450 190 \
   ~/Desktop/FreeScreenshot.dmg \
-  /path/to/DerivedData/freescreenshot-xxx/Build/Products/Release/
+  /tmp/FreeScreenshotCleanDMG/
 ```
 
 Note: Replace `/path/to/DerivedData/freescreenshot-xxx` with your actual DerivedData path, which can be found by running:
