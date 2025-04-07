@@ -2,9 +2,7 @@
 
 FreeScreenshot is a macOS application that transforms dull screenshots into stunning visuals with just a few clicks.
 
-Demo Video-
-
-Demo- https://youtu.be/oOLXdRLYA24
+Demo Video- https://youtu.be/oOLXdRLYA24
 
 ## Features
 
