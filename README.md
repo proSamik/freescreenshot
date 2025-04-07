@@ -11,6 +11,10 @@ FreeScreenshot is a macOS application that transforms dull screenshots into stun
 - Export your enhanced screenshots in various formats
 - Then Edit more if required in FlameShot (Download it) or Preview (Pre-installed in MacOS)
 
+## Download 
+
+[Download the .dmg](FreeScreenshot.dmg) 
+
 ## Getting Started
 
 ### Prerequisites
