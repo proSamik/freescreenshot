@@ -15,6 +15,8 @@ FreeScreenshot is a macOS application that transforms dull screenshots into stun
 
 [Download the .dmg](FreeScreenshot.dmg) 
 
+> **⚠️ Caution**: Due to Financial Constraints. The application is not signed with an Apple Developer Certificate. Users may receive security warnings when trying to open the application for the first time. They can bypass this by right-clicking the app and selecting "Open" from the context menu, or by adjusting their security settings in System Preferences > Security & Privacy. For commercial distribution, consider enrolling in the [Apple Developer Program](https://developer.apple.com/programs/) to properly sign your application.
+
 ## Getting Started
 
 ### Prerequisites
@@ -88,8 +90,6 @@ Note: Replace `/path/to/DerivedData/freescreenshot-xxx` with your actual Derived
 ```bash
 find ~/Library/Developer/Xcode/DerivedData -name "freescreenshot*" -type d
 ```
-
-> **⚠️ Caution**: Due to Financial Constraints. The application is not signed with an Apple Developer Certificate. Users may receive security warnings when trying to open the application for the first time. They can bypass this by right-clicking the app and selecting "Open" from the context menu, or by adjusting their security settings in System Preferences > Security & Privacy. For commercial distribution, consider enrolling in the [Apple Developer Program](https://developer.apple.com/programs/) to properly sign your application.
 
 ## Dependencies
 
