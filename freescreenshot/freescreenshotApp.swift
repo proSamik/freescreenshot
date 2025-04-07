@@ -62,14 +62,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Hide the app from Dock - set this first thing
         NSApp.setActivationPolicy(.accessory)
         
-        // Request screen recording permission
-        let screenCaptureAccess = CGPreflightScreenCaptureAccess()
-        if !screenCaptureAccess {
-            let granted = CGRequestScreenCaptureAccess()
-            print("Screen capture access requested: \(granted)")
-        } else {
-            print("Screen capture access already granted")
-        }
+        // Use our improved permission handling
+        ensureScreenCapturePermission()
         
         // Set up the status bar item
         setupStatusBarItem()
