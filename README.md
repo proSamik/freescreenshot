@@ -38,6 +38,55 @@ open freescreenshot.xcodeproj
 4. Apply backgrounds, add annotations, and enhance your screenshot
 5. Click "Export" to save your masterpiece
 
+## Creating a Distribution DMG
+
+Follow these steps to create a professional DMG file for distributing the application:
+
+### Prerequisites
+
+- Xcode installed
+- [Homebrew](https://brew.sh/) installed
+- create-dmg utility (installed via Homebrew)
+
+### Installation Steps
+
+1. Install the create-dmg utility:
+
+```bash
+brew install create-dmg
+```
+
+2. Build the application in Release mode:
+
+```bash
+cd /path/to/freescreenshot
+xcodebuild -configuration Release -scheme freescreenshot
+```
+
+3. Create the DMG file with drag-to-install behavior:
+
+```bash
+create-dmg \
+  --volname "FreeScreenshot" \
+  --volicon "/path/to/DerivedData/freescreenshot-xxx/Build/Products/Release/freescreenshot.app/Contents/Resources/AppIcon.icns" \
+  --window-pos 200 120 \
+  --window-size 600 400 \
+  --icon-size 100 \
+  --icon "freescreenshot.app" 150 190 \
+  --hide-extension "freescreenshot.app" \
+  --app-drop-link 450 190 \
+  ~/Desktop/FreeScreenshot.dmg \
+  /path/to/DerivedData/freescreenshot-xxx/Build/Products/Release/
+```
+
+Note: Replace `/path/to/DerivedData/freescreenshot-xxx` with your actual DerivedData path, which can be found by running:
+
+```bash
+find ~/Library/Developer/Xcode/DerivedData -name "freescreenshot*" -type d
+```
+
+> **⚠️ Caution**: Due to Financial Constraints. The application is not signed with an Apple Developer Certificate. Users may receive security warnings when trying to open the application for the first time. They can bypass this by right-clicking the app and selecting "Open" from the context menu, or by adjusting their security settings in System Preferences > Security & Privacy. For commercial distribution, consider enrolling in the [Apple Developer Program](https://developer.apple.com/programs/) to properly sign your application.
+
 ## Dependencies
 
 - [HotKey](https://github.com/soffes/HotKey) - For keyboard shortcut handling
