@@ -1,5 +1,35 @@
-.build
-.swiftpm
-.DS_Store
+# Build
+.build/
+build/
+DerivedData/
+*.o
+*.pyc
 
-.vscode
+# Package Managers
+.swiftpm/
+.resolved
+Package.resolved
+
+# IDE
+.vscode/
+.idea/
+*.xcodeproj
+*.xcworkspace
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# App specific
+FreeScreenshot.app/
+dmg_temp/
+AppIcon.iconset/
+*.icns
+
+# Logs and databases
+*.log
+*.sqlite
+*.sqlite3
+
