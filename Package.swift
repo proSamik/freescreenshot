@@ -7,7 +7,7 @@ let package = Package(
         .macOS(.v12)
     ],
     products: [
-        .library(
+        .executable(
             name: "FreeScreenshot",
             targets: ["FreeScreenshot"]),
     ],
@@ -15,9 +15,12 @@ let package = Package(
         .package(url: "https://github.com/soffes/HotKey", from: "0.1.3"),
     ],
     targets: [
-        .target(
+        .executableTarget(
             name: "FreeScreenshot",
             dependencies: ["HotKey"],
-            path: "freescreenshot"),
+            path: "freescreenshot",
+            resources: [
+                .process("Assets.xcassets")
+            ]),
     ]
 ) 
