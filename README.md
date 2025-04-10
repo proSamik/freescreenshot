@@ -16,7 +16,8 @@ Demo Video- https://youtu.be/oOLXdRLYA24
 
 ## Download 
 
-[Download the Universal DMG](FreeScreenshot.dmg) 
+[Download the Silicon Based Mac DMG](FreeScreenshot-intel.dmg) 
+[Download the Intel Based Mac DMG](FreeScreenshot-silicon.dmg) 
 
 > **⚠️ Caution**: Due to Financial Constraints. The application is not signed with an Apple Developer Certificate. Users may receive security warnings when trying to open the application for the first time. They can bypass this by right-clicking the app and selecting "Open" from the context menu, or by adjusting their security settings in System Preferences > Security & Privacy. For commercial distribution, consider enrolling in the [Apple Developer Program](https://developer.apple.com/programs/) to properly sign your application.
 
